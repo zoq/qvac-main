@@ -1,4 +1,4 @@
-# GitFlow for QVAC Public SDKs & Model Packages (Monorepo)
+# GitFlow for QVAC Public SDKs & Model Packages
 
 This repo uses a **main-first GitFlow** designed for public-facing SDK/model packages:
 
@@ -12,15 +12,15 @@ This repo uses a **main-first GitFlow** designed for public-facing SDK/model pac
 
 ---
 
-## Repo conventions (monorepo)
+## Repo conventions
 
 - Packages live under: `packages/<package>/`
 - Each package owns its own:
   - `packages/<package>/package.json`
   - `packages/<package>/CHANGELOG.md` (or equivalent changelog file)
-- CI workflows are expected to:
-  - **Scope** by `paths: packages/<package>/**`
-  - Support a `workdir` input (or env var) that points to the package folder
+- CI workflows are:
+  - **Scoped** by `paths: packages/<package>/**`
+  - Supports a `workdir` input (or env var) that points to the package folder
 
 ---
 
@@ -33,11 +33,12 @@ This repo uses a **main-first GitFlow** designed for public-facing SDK/model pac
 | Feature | `feature-<package>-*` | Isolated work not meant to affect releases | GitHub Packages (**feature**) | Never publish to NPM |
 | Temp | `tmp-<package>-*` | QA, preview, experiments | GitHub Packages (**temp**) | Never publish to NPM |
 
-**Publishing semantics (recommended):**
+**Publishing semantics:**
 - GitHub Packages dist-tags: `dev`, `feature`, `temp`
-- NPM dist-tags: usually `latest` (or `next`/`beta` if explicitly needed)
+- NPM dist-tags: `latest` (or `next`/`beta` if explicitly needed)
 
 ---
+![Branch types and publishing](.github/docs/gitflow/images/branch-types-and-publishing.png)
 
 ## Release flow (new version x.y.z)
 
@@ -80,8 +81,6 @@ git pull
 git merge --no-ff origin/release-<package>-<x.y.z>
 git push
 ```
-
-> If you intentionally do **not** want version/changelog changes on `main`, you can skip merge-back — but be aware that `main` will drift from released metadata.
 
 ---
 
@@ -138,7 +137,7 @@ CI behavior:
 - Build on pushes/PRs
 - Publish to GitHub Packages with dist-tag `feature`
 - **Never publish to NPM**
-- Should not create git tags or GitHub releases
+- Does not create git tags or GitHub releases
 
 ### `tmp-<package>-*`
 Use for QA, previews, and experiments.
@@ -147,7 +146,7 @@ CI behavior:
 - Build on pushes/PRs
 - Publish to GitHub Packages with dist-tag `temp`
 - **Never publish to NPM**
-- Should not create git tags or GitHub releases
+- Does not create git tags or GitHub releases
 
 ---
 
@@ -159,17 +158,9 @@ For **all** `release-*` branches:
 - `packages/<package>/package.json` version **must** increase vs base
 - `packages/<package>/CHANGELOG.md` **must** be updated
 
-❌ CI must fail if:
+❌ CI will fail if:
 - Version is unchanged / not incremented
 - Changelog is missing or unchanged
-- Files are modified outside the package scope (optional but recommended guardrail)
-
-Implementation options:
-- A reusable workflow like `release-pr-guard` that:
-  - Computes changed files (PR file list)
-  - Verifies `package.json` version bump
-  - Verifies `CHANGELOG.md` touched
-  - Enforces scoped changes
 
 ---
 
@@ -210,20 +201,11 @@ To reflect the branch intent correctly:
 
 ---
 
-## Diagrams (optional)
+## Diagrams
 
-If you include diagrams in the repo, we recommend:
 
-```
-docs/gitflow/
-  branch-types-and-publishing.png
-  release-flow.png
-  patch-flow.png
-  feature-temp-flow.png
-```
 
-And reference them from this file like:
 
 ```md
-![Branch types and publishing](docs/gitflow/branch-types-and-publishing.png)
+![Branch types and publishing](.github/docs/gitflow/images/branch-types-and-publishing.png)
 ```
