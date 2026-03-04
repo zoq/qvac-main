@@ -446,6 +446,10 @@ void MtmdLlmContext::setNDiscarded(llama_pos nDiscarded) {
   this->nDiscarded_ = nDiscarded;
 }
 
+void MtmdLlmContext::setToolsAtEnd(bool toolsAtEnd) {
+  this->toolsAtEnd_ = toolsAtEnd;
+}
+
 void MtmdLlmContext::loadMedia(const std::vector<uint8_t>& media) {
   if (media.empty()) {
     resetMedia();

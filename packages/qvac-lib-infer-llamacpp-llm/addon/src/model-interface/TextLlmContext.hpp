@@ -104,6 +104,8 @@ public:
    */
   void setNDiscarded(llama_pos nDiscarded) override;
 
+  void setToolsAtEnd(bool toolsAtEnd) override;
+
   /**
    * The reset state method. It resets the context.
    *
@@ -177,6 +179,8 @@ private:
   bool isQwen3Model_ = false;
 
   std::atomic<bool> stopGeneration_ = false;
+
+  bool toolsAtEnd_ = false;
 };
 
 

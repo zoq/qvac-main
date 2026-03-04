@@ -235,6 +235,11 @@ void LlamaModel::init(bool acquireLock) {
       params,
       std::move(llamaInit));
 
+  // Apply tools_at_end flag
+  if (snap->llmContext_) {
+    snap->llmContext_->setToolsAtEnd(snap->toolsAtEnd_);
+  }
+
   if (snap->configuredNDiscarded_ > 0 && snap->llmContext_) {
     snap->llmContext_->setNDiscarded(snap->configuredNDiscarded_);
   }
@@ -473,6 +478,15 @@ void LlamaModel::commonParamsParse(
               qvac_errors::general_error::InvalidArgument),
           errorMsg);
     }
+    configFilemap.erase(iter);
+  }
+
+  // parse tools_at_end flag from config
+  if (auto iter = configFilemap.find("tools_at_end");
+      iter != configFilemap.end()) {
+    std::string val = iter->second;
+    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+    state_->toolsAtEnd_ = (val == "true");
     configFilemap.erase(iter);
   }
 

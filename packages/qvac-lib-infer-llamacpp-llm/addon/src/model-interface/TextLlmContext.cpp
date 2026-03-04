@@ -534,6 +534,10 @@ void TextLlmContext::setNDiscarded(llama_pos nDiscarded) {
   this->nDiscarded_ = nDiscarded;
 }
 
+void TextLlmContext::setToolsAtEnd(bool toolsAtEnd) {
+  this->toolsAtEnd_ = toolsAtEnd;
+}
+
 llama_pos TextLlmContext::removeLastNTokens(llama_pos count) {
   // Validate input
   if (count <= 0) {

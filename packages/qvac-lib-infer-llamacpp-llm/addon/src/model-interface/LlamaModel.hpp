@@ -181,6 +181,7 @@ private:
 
     // configuration values parsed from configFilemap
     llama_pos configuredNDiscarded_ = 0;
+    bool toolsAtEnd_ = false;
     std::optional<CacheManager> cacheManager_;
     bool lastRunWasPrefill_ = false;
   };

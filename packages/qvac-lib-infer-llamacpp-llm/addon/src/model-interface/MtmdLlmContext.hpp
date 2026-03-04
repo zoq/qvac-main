@@ -112,6 +112,8 @@ public:
    */
   void setNDiscarded(llama_pos nDiscarded) override;
 
+  void setToolsAtEnd(bool toolsAtEnd) override;
+
   /**
    * The load media method. It loads the media from memory buffer.
    *
@@ -199,6 +201,8 @@ private:
   // UTF-8 token buffer for handling incomplete emoji sequences
   qvac_lib_inference_addon_llama::UTF8TokenBuffer utf8Buffer_;
   std::atomic<bool> stopGeneration_ = false;
+
+  bool toolsAtEnd_ = false;
 };
 
 

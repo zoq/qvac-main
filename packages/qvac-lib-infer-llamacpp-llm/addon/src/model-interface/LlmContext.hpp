@@ -182,6 +182,11 @@ public:
   virtual void setNDiscarded(llama_pos nDiscarded) = 0;
 
   /**
+   * Set whether tools should be placed at the end of the prompt.
+   */
+  virtual void setToolsAtEnd(bool toolsAtEnd) = 0;
+
+  /**
    * The load media method. It loads the media from memory buffer.
    * Default implementation does nothing (for text-only contexts).
    * Override in multimodal contexts to provide media loading functionality.
