@@ -41,6 +41,7 @@ add_executable(
   ${CMAKE_SOURCE_DIR}/addon/src/utils/ChatTemplateUtils.cpp
   ${CMAKE_SOURCE_DIR}/addon/src/utils/Qwen3ReasoningUtils.cpp
   ${CMAKE_SOURCE_DIR}/addon/src/utils/QwenTemplate.cpp
+  ${CMAKE_SOURCE_DIR}/addon/src/utils/Qwen3ToolsDynamicTemplate.cpp
 )
 
 target_compile_options(

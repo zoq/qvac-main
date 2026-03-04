@@ -49,7 +49,7 @@ TextLlmContext::TextLlmContext(
           lctx_, reasoningState_);
     }
 
-    std::string chatTemplate = getChatTemplate(model_, params_);
+    std::string chatTemplate = getChatTemplate(model_, params_, toolsAtEnd_);
     tmpls_ = common_chat_templates_init(model_, chatTemplate);
 
     smpl_.reset(common_sampler_init(model_, params_.sampling));
