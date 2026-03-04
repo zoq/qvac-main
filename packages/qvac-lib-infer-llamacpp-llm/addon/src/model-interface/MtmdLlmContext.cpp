@@ -204,6 +204,34 @@ void MtmdLlmContext::tokenizeChat(
     throw qvac_errors::StatusError(ADDON_ID, toString(EncoderFailed), errorMsg);
   }
 
+  if (toolsAtEnd_ && !tools.empty()) {
+    auto savedTools = inputs.tools;
+    inputs.tools = {};
+    auto promptNoTools = getPrompt(tmpls_.get(), inputs);
+    inputs.tools = savedTools;
+
+    if (!promptNoTools.empty()) {
+      mtmd_input_text textNoTools;
+      textNoTools.text = promptNoTools.c_str();
+      textNoTools.add_special = addSpecial;
+      textNoTools.parse_special = true;
+
+      mtmd::input_chunks chunksNoTools(mtmd_input_chunks_init());
+      int32_t resNoTools = mtmd_tokenize(
+          ctxVision_.get(),
+          chunksNoTools.ptr.get(),
+          &textNoTools,
+          bitmapsCPtr.data(),
+          bitmapsCPtr.size());
+
+      if (resNoTools == 0) {
+        nConversationOnlyTokens_ = mtmd_helper_get_n_tokens(chunksNoTools.ptr.get());
+      }
+    }
+  } else {
+    nConversationOnlyTokens_ = 0;
+  }
+
   resetMedia();
 }
 
@@ -448,6 +476,10 @@ void MtmdLlmContext::setNDiscarded(llama_pos nDiscarded) {
 
 void MtmdLlmContext::setToolsAtEnd(bool toolsAtEnd) {
   this->toolsAtEnd_ = toolsAtEnd;
+}
+
+llama_pos MtmdLlmContext::getNConversationOnlyTokens() const {
+  return nConversationOnlyTokens_;
 }
 
 void MtmdLlmContext::loadMedia(const std::vector<uint8_t>& media) {

@@ -264,6 +264,13 @@ bool LlamaModel::isLoaded() {
   return static_cast<bool>(state_->llmContext_);
 }
 
+llama_pos LlamaModel::getNConversationOnlyTokens() const {
+  if (llmContext_) {
+    return llmContext_->getNConversationOnlyTokens();
+  }
+  return 0;
+}
+
 void LlamaModel::llamaLogCallback(
     ggml_log_level level, const char* text, void* userData) {
   (void)userData;

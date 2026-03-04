@@ -187,6 +187,13 @@ public:
   virtual void setToolsAtEnd(bool toolsAtEnd) = 0;
 
   /**
+   * Get the number of conversation-only tokens (without tools).
+   * This is used for double-tokenization to find the boundary between
+   * conversation tokens and tool tokens.
+   */
+  [[nodiscard]] virtual llama_pos getNConversationOnlyTokens() const = 0;
+
+  /**
    * The load media method. It loads the media from memory buffer.
    * Default implementation does nothing (for text-only contexts).
    * Override in multimodal contexts to provide media loading functionality.

@@ -114,6 +114,8 @@ public:
 
   void setToolsAtEnd(bool toolsAtEnd) override;
 
+  [[nodiscard]] llama_pos getNConversationOnlyTokens() const override;
+
   /**
    * The load media method. It loads the media from memory buffer.
    *
@@ -203,6 +205,8 @@ private:
   std::atomic<bool> stopGeneration_ = false;
 
   bool toolsAtEnd_ = false;
+
+  llama_pos nConversationOnlyTokens_ = 0;
 };
 
 

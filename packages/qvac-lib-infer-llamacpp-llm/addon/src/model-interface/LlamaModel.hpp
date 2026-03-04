@@ -127,6 +127,12 @@ public:
   bool isLoaded();
 
   /**
+   * Get the number of conversation-only tokens (without tools).
+   * This is set when toolsAtEnd is enabled and tools are provided.
+   */
+  llama_pos getNConversationOnlyTokens() const;
+
+  /**
    * Ensure model is initialized
    */
   void waitForLoadInitialization() final {

@@ -1,3 +1,4 @@
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
@@ -370,4 +371,406 @@ TEST_F(TextLlmContextTest, ProcessWithMultipleTools) {
     auto stats = model->runtimeStats();
     EXPECT_GE(stats.size(), 0);
   });
+}
+
+TEST_F(TextLlmContextTest, DoubleTokenizeWithToolsAtEnd) {
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  config_files["tools_at_end"] = "true";
+  auto model = createModel();
+  if (!model) {
+    FAIL() << "Model failed to load";
+  }
+
+  LlamaModel::Prompt prompt;
+  prompt.input = R"([
+    {"role": "user", "content": "What is the weather in Tokyo?"},
+    {
+      "type": "function",
+      "name": "getWeather",
+      "description": "Get weather forecast for a city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string", "description": "City name"},
+          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
+        },
+        "required": ["city", "date"]
+      }
+    }
+  ])";
+
+  EXPECT_NO_THROW({
+    std::string output = model->processPrompt(prompt);
+  });
+
+  llama_pos nConvTokens = model->getNConversationOnlyTokens();
+  EXPECT_GT(nConvTokens, 0);
+}
+
+TEST_F(TextLlmContextTest, DoubleTokenizeWithoutToolsAtEnd) {
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  config_files["tools_at_end"] = "false";
+  auto model = createModel();
+  if (!model) {
+    FAIL() << "Model failed to load";
+  }
+
+  LlamaModel::Prompt prompt;
+  prompt.input = R"([
+    {"role": "user", "content": "What is the weather in Tokyo?"},
+    {
+      "type": "function",
+      "name": "getWeather",
+      "description": "Get weather forecast for a city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string", "description": "City name"},
+          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
+        },
+        "required": ["city", "date"]
+      }
+    }
+  ])";
+
+  EXPECT_NO_THROW({
+    std::string output = model->processPrompt(prompt);
+  });
+
+  llama_pos nConvTokens = model->getNConversationOnlyTokens();
+  EXPECT_EQ(nConvTokens, 0);
+}
+
+TEST_F(TextLlmContextTest, DoubleTokenizeWithToolsAtEndNoTools) {
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  config_files["tools_at_end"] = "true";
+  auto model = createModel();
+  if (!model) {
+    FAIL() << "Model failed to load";
+  }
+
+  LlamaModel::Prompt prompt;
+  prompt.input = R"([{"role": "user", "content": "Hello, how are you?"}])";
+
+  EXPECT_NO_THROW({
+    std::string output = model->processPrompt(prompt);
+  });
+
+  llama_pos nConvTokens = model->getNConversationOnlyTokens();
+  EXPECT_EQ(nConvTokens, 0);
+}
+
+TEST_F(TextLlmContextTest, DoubleTokenizeWithMultipleTools) {
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  config_files["tools_at_end"] = "true";
+  auto model = createModel();
+  if (!model) {
+    FAIL() << "Model failed to load";
+  }
+
+  LlamaModel::Prompt prompt;
+  prompt.input = R"([
+    {"role": "user", "content": "Search for laptops and add to cart"},
+    {
+      "type": "function",
+      "name": "searchProducts",
+      "description": "Search products",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {"type": "string", "description": "Search query"}
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "addToCart",
+      "description": "Add items to cart",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "required": ["items"]
+      }
+    }
+  ])";
+
+  EXPECT_NO_THROW({
+    std::string output = model->processPrompt(prompt);
+  });
+
+  llama_pos nConvTokens = model->getNConversationOnlyTokens();
+  EXPECT_GT(nConvTokens, 0);
+}
+
+TEST_F(TextLlmContextTest, DoubleTokenizeBoundaryAccuracy) {
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  config_files["tools_at_end"] = "true";
+  auto model = createModel();
+  if (!model) {
+    FAIL() << "Model failed to load";
+  }
+
+  LlamaModel::Prompt promptWithTools;
+  promptWithTools.input = R"([
+    {"role": "user", "content": "What is the weather in Tokyo?"},
+    {
+      "type": "function",
+      "name": "getWeather",
+      "description": "Get weather forecast for a city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string", "description": "City name"},
+          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
+        },
+        "required": ["city", "date"]
+      }
+    }
+  ])";
+
+  EXPECT_NO_THROW({
+    std::string output = model->processPrompt(promptWithTools);
+  });
+
+  llama_pos conversationTokens = model->getNConversationOnlyTokens();
+
+  EXPECT_NO_THROW({
+    model->reset();
+  });
+
+  LlamaModel::Prompt promptNoTools;
+  promptNoTools.input = R"([{"role": "user", "content": "What is the weather in Tokyo?"}])";
+
+  EXPECT_NO_THROW({
+    std::string output = model->processPrompt(promptNoTools);
+  });
+
+  llama_pos tokensWithoutTools = model->getNConversationOnlyTokens();
+
+  EXPECT_EQ(tokensWithoutTools, 0);
+  EXPECT_GT(conversationTokens, 0);
+}
+
+TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  const std::string promptWithTools = R"([
+    {"role": "user", "content": "What is the weather in Tokyo?"},
+    {
+      "type": "function",
+      "name": "getWeather",
+      "description": "Get weather forecast for a city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string", "description": "City name"},
+          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
+        },
+        "required": ["city", "date"]
+      }
+    }
+  ])";
+
+  const int numIterations = 10;
+
+  {
+    config_files["tools_at_end"] = "false";
+    auto model = createModel();
+    if (!model) {
+      FAIL() << "Model failed to load";
+    }
+
+    LlamaModel::Prompt prompt;
+    prompt.input = promptWithTools;
+
+    auto startSingle = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < numIterations; ++i) {
+      model->reset();
+      std::string output = model->processPrompt(prompt);
+    }
+    auto endSingle = std::chrono::high_resolution_clock::now();
+    auto durationSingle = std::chrono::duration_cast<std::chrono::microseconds>(
+                              endSingle - startSingle)
+                              .count();
+
+    auto stats = model->runtimeStats();
+    int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
+
+    GTEST_LOG_(INFO) << "Single tokenization (no tools_at_end): "
+                     << durationSingle / numIterations << " us per iteration ("
+                     << promptTokens << " prompt tokens)";
+  }
+
+  {
+    config_files["tools_at_end"] = "true";
+    auto model = createModel();
+    if (!model) {
+      FAIL() << "Model failed to load";
+    }
+
+    LlamaModel::Prompt prompt;
+    prompt.input = promptWithTools;
+
+    auto startDouble = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < numIterations; ++i) {
+      model->reset();
+      std::string output = model->processPrompt(prompt);
+    }
+    auto endDouble = std::chrono::high_resolution_clock::now();
+    auto durationDouble = std::chrono::duration_cast<std::chrono::microseconds>(
+                              endDouble - startDouble)
+                              .count();
+
+    auto stats = model->runtimeStats();
+    int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
+    llama_pos convTokens = model->getNConversationOnlyTokens();
+
+    GTEST_LOG_(INFO) << "Double tokenization (tools_at_end=true): "
+                     << durationDouble / numIterations << " us per iteration ("
+                     << promptTokens << " prompt tokens, " << convTokens
+                     << " conversation-only tokens)";
+  }
+
+  {
+    config_files["tools_at_end"] = "true";
+    auto model = createModel();
+    if (!model) {
+      FAIL() << "Model failed to load";
+    }
+
+    LlamaModel::Prompt promptNoTools;
+    promptNoTools.input = R"([{"role": "user", "content": "Hello, how are you?"}])";
+
+    auto startNoTools = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < numIterations; ++i) {
+      model->reset();
+      std::string output = model->processPrompt(promptNoTools);
+    }
+    auto endNoTools = std::chrono::high_resolution_clock::now();
+    auto durationNoTools =
+        std::chrono::duration_cast<std::chrono::microseconds>(endNoTools -
+                                                              startNoTools)
+            .count();
+
+    auto stats = model->runtimeStats();
+    int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
+
+    GTEST_LOG_(INFO) << "Without tools (tools_at_end=true): "
+                     << durationNoTools / numIterations << " us per iteration ("
+                     << promptTokens << " prompt tokens)";
+  }
+}
+
+TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  std::string longContent;
+  for (int i = 0; i < 50; ++i) {
+    longContent += "This is a test message number " + std::to_string(i) +
+                   ". It contains some text that will be tokenized into many "
+                   "tokens. The purpose is to test the performance of "
+                   "tokenization with a large prompt. ";
+  }
+
+  const std::string promptWithTools = R"([
+    {"role": "user", "content": ")" + longContent + R"("},
+    {
+      "type": "function",
+      "name": "getWeather",
+      "description": "Get weather forecast for a city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string", "description": "City name"},
+          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
+        },
+        "required": ["city", "date"]
+      }
+    }
+  ])";
+
+  const int numIterations = 3;
+
+  {
+    config_files["tools_at_end"] = "false";
+    auto model = createModel();
+    if (!model) {
+      FAIL() << "Model failed to load";
+    }
+
+    LlamaModel::Prompt prompt;
+    prompt.input = promptWithTools;
+
+    auto startSingle = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < numIterations; ++i) {
+      model->reset();
+      std::string output = model->processPrompt(prompt);
+    }
+    auto endSingle = std::chrono::high_resolution_clock::now();
+    auto durationSingle = std::chrono::duration_cast<std::chrono::microseconds>(
+                              endSingle - startSingle)
+                              .count();
+
+    auto stats = model->runtimeStats();
+    int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
+
+    GTEST_LOG_(INFO) << "Large prompt - Single tokenization (no tools_at_end): "
+                     << durationSingle / numIterations << " us per iteration ("
+                     << promptTokens << " prompt tokens)";
+  }
+
+  {
+    config_files["tools_at_end"] = "true";
+    auto model = createModel();
+    if (!model) {
+      FAIL() << "Model failed to load";
+    }
+
+    LlamaModel::Prompt prompt;
+    prompt.input = promptWithTools;
+
+    auto startDouble = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < numIterations; ++i) {
+      model->reset();
+      std::string output = model->processPrompt(prompt);
+    }
+    auto endDouble = std::chrono::high_resolution_clock::now();
+    auto durationDouble = std::chrono::duration_cast<std::chrono::microseconds>(
+                              endDouble - startDouble)
+                              .count();
+
+    auto stats = model->runtimeStats();
+    int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
+    llama_pos convTokens = model->getNConversationOnlyTokens();
+
+    GTEST_LOG_(INFO) << "Large prompt - Double tokenization (tools_at_end=true): "
+                     << durationDouble / numIterations << " us per iteration ("
+                     << promptTokens << " prompt tokens, " << convTokens
+                     << " conversation-only tokens)";
+  }
 }

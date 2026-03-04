@@ -106,6 +106,8 @@ public:
 
   void setToolsAtEnd(bool toolsAtEnd) override;
 
+  [[nodiscard]] llama_pos getNConversationOnlyTokens() const override;
+
   /**
    * The reset state method. It resets the context.
    *
@@ -181,6 +183,8 @@ private:
   std::atomic<bool> stopGeneration_ = false;
 
   bool toolsAtEnd_ = false;
+
+  llama_pos nConversationOnlyTokens_ = 0;
 };
 
 

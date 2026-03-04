@@ -217,6 +217,17 @@ void TextLlmContext::tokenizeChat(
 
   if (!prompt.empty()) {
     inputTokens = common_tokenize(lctx_, prompt, addSpecial, true);
+
+    if (toolsAtEnd_ && !tools.empty()) {
+      auto savedTools = inputs.tools;
+      inputs.tools = {};
+      auto promptNoTools = getPrompt(tmpls_.get(), inputs);
+      auto tokensNoTools = common_tokenize(lctx_, promptNoTools, addSpecial, true);
+      inputs.tools = savedTools;
+      nConversationOnlyTokens_ = tokensNoTools.size();
+    } else {
+      nConversationOnlyTokens_ = 0;
+    }
   } else {
     std::string errorMsg = string_format(
         "[TextLlm] %s: formatted chat prompt is empty\n", __func__);
@@ -536,6 +547,10 @@ void TextLlmContext::setNDiscarded(llama_pos nDiscarded) {
 
 void TextLlmContext::setToolsAtEnd(bool toolsAtEnd) {
   this->toolsAtEnd_ = toolsAtEnd;
+}
+
+llama_pos TextLlmContext::getNConversationOnlyTokens() const {
+  return nConversationOnlyTokens_;
 }
 
 llama_pos TextLlmContext::removeLastNTokens(llama_pos count) {
