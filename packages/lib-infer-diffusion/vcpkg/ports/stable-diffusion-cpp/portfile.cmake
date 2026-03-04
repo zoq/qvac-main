@@ -80,6 +80,21 @@ string(REPLACE
 )
 file(WRITE "${_reg_file}" "${_reg_contents}")
 
+# 2. pthread_cancel is not available in the Android NDK.
+#    ggml-backend-reg.cpp calls pthread_cancel to stop loader threads; on
+#    Android we replace that call with a no-op so the build succeeds.
+#    The thread will still terminate naturally when its work is done.
+if(VCPKG_TARGET_IS_ANDROID)
+    set(_reg_file "${SOURCE_PATH}/ggml/src/ggml-backend-reg.cpp")
+    file(READ "${_reg_file}" _reg_contents)
+    string(REPLACE
+        "pthread_cancel("
+        "((void)0); // pthread_cancel unavailable on Android — ("
+        _reg_contents "${_reg_contents}"
+    )
+    file(WRITE "${_reg_file}" "${_reg_contents}")
+endif()
+
 # --- Platform options (mirrors qvac-fabric pattern) ---
 set(PLATFORM_OPTIONS)
 
@@ -134,10 +149,19 @@ if("flash-attn" IN_LIST FEATURES)
 endif()
 
 # --- Configure and build ---
+# GGML_BACKEND_DL compiles each GPU backend as a MODULE (.so), which requires
+# BUILD_SHARED_LIBS=ON so CMake enables MODULE target support. On all other
+# platforms we keep everything statically linked (BUILD_SHARED_LIBS=OFF).
+if(DL_BACKENDS)
+    set(BUILD_SHARED_LIBS_OPTION -DBUILD_SHARED_LIBS=ON)
+else()
+    set(BUILD_SHARED_LIBS_OPTION -DBUILD_SHARED_LIBS=OFF)
+endif()
+
 vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"
     OPTIONS
-        -DBUILD_SHARED_LIBS=OFF
+        ${BUILD_SHARED_LIBS_OPTION}
         -DSD_BUILD_EXAMPLES=OFF
         -DSD_BUILD_SHARED_LIBS=OFF
         -DSD_CUDA=${SD_GGML_CUDA}
