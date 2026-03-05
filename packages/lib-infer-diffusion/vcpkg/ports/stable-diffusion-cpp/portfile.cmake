@@ -103,30 +103,6 @@ if(VCPKG_TARGET_IS_ANDROID)
     endif()
 endif()
 
-# 3. Metal NORM op fallback (Apple only).
-#    The ggml Metal backend claims to support GGML_OP_NORM but aborts at
-#    encoding time when the input tensor has non-contiguous rows (the CLIP
-#    text encoder hits this).  The graph scheduler sees supports_op → true
-#    at planning time, routes the op to Metal, and the encoder GGML_ABORTs.
-#    Fix: force NORM to always return false in supports_op so the scheduler
-#    routes it to CPU.  RMS_NORM (used by the UNET) is unaffected.
-if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS)
-    set(_metal_dev_file "${SOURCE_PATH}/ggml/src/ggml-metal/ggml-metal-device.m")
-    file(READ "${_metal_dev_file}" _metal_contents)
-
-    if(NOT _metal_contents MATCHES "QVAC: route NORM to CPU")
-        string(REPLACE
-            "case GGML_OP_NORM:"
-            "case GGML_OP_NORM: return false; /* QVAC: route NORM to CPU */"
-            _metal_contents "${_metal_contents}"
-        )
-        file(WRITE "${_metal_dev_file}" "${_metal_contents}")
-        message(STATUS "[qvac] Patched GGML_OP_NORM → CPU fallback in ggml-metal-device.m")
-    else()
-        message(STATUS "[qvac] GGML_OP_NORM patch already applied")
-    endif()
-endif()
-
 # --- Platform options (mirrors qvac-fabric pattern) ---
 set(PLATFORM_OPTIONS)
 
