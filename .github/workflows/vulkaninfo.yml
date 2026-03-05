@@ -114,26 +114,19 @@ jobs:
           }
           Write-Host "NVIDIA driver installation verified successfully."
 
-      - name: Install Vulkan SDK on Windows
-        working-directory: ${{ env.WORKDIR }}
-        run: |
-          $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest -Uri https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe -OutFile vulkan-sdk.exe
-          ./vulkan-sdk.exe --root C:\VulkanSDK --accept-licenses --default-answer --confirm-command install
-          echo "VULKAN_SDK=C:\VulkanSDK" >> $Env:GITHUB_ENV
 
   # run-vulkaninfo:
   #   runs-on: ai-run-windows11-gpu
   #   steps:
-  #     - name: GPU detection via nvidia-smi and vulkaninfo
-  #       continue-on-error: true
-  #       shell: powershell
-  #       run: |
-  #         Write-Host "=== GPU Device List ==="
-  #         nvidia-smi -L
-  #         Write-Host ""
-  #         Write-Host "=== Running nvidia-smi ==="
-  #         nvidia-smi
-  #         Write-Host ""
-  #         Write-Host "=== Running Vulkaninfo ==="
-  #         vulkaninfo.exe --summary
+      - name: GPU detection via nvidia-smi and vulkaninfo
+        continue-on-error: true
+        shell: powershell
+        run: |
+          Write-Host "=== GPU Device List ==="
+          nvidia-smi -L
+          Write-Host ""
+          Write-Host "=== Running nvidia-smi ==="
+          nvidia-smi
+          Write-Host ""
+          Write-Host "=== Running Vulkaninfo ==="
+          vulkaninfo.exe --summary
