@@ -15,9 +15,10 @@ using namespace qvac_lib_inference_addon_llama::logging;
 
 CacheManager::CacheManager(
     LlmContext* llmContext, llama_pos configuredNDiscarded,
-    std::function<void(bool)> resetStateCallback)
+    std::function<void(bool)> resetStateCallback, bool toolsAtEnd)
     : llmContext_(llmContext), configuredNDiscarded_(configuredNDiscarded),
-      resetStateCallback_(std::move(resetStateCallback)) {}
+      resetStateCallback_(std::move(resetStateCallback)),
+      toolsAtEnd_(toolsAtEnd) {}
 
 bool CacheManager::isFileInitialized(const std::filesystem::path& path) {
   std::error_code errorCode;
@@ -243,6 +244,22 @@ void CacheManager::saveCache() {
           "\n%s: saving final output to session file '%s'\n",
           __func__,
           sessionPath_.c_str()));
+
+  if (toolsAtEnd_) {
+    llama_pos trimPoint = llmContext_->getNPastBeforeTools();
+    if (trimPoint > 0 && trimPoint < llmContext_->getNPast()) {
+      auto* mem = llama_get_memory(ctx);
+      llama_memory_seq_rm(mem, -1, trimPoint, -1);
+      llmContext_->setNPast(trimPoint);
+      QLOG_IF(
+          Priority::DEBUG,
+          string_format(
+              "%s: trimmed %d tool+response tokens before saving (tools-at-end "
+              "mode)\n",
+              __func__,
+              llmContext_->getNPast() - trimPoint));
+    }
+  }
 
   llama_token sessionTokens[2] = {
       static_cast<llama_token>(llmContext_->getNPast()),

@@ -248,7 +248,8 @@ void LlamaModel::init(bool acquireLock) {
     snap->cacheManager_.emplace(
         snap->llmContext_.get(),
         snap->configuredNDiscarded_,
-        [this](bool resetStats) { this->resetState(resetStats); });
+        [this](bool resetStats) { this->resetState(resetStats); },
+        snap->toolsAtEnd_);
   }
 }
 
@@ -265,15 +266,17 @@ bool LlamaModel::isLoaded() {
 }
 
 llama_pos LlamaModel::getNConversationOnlyTokens() const {
-  if (llmContext_) {
-    return llmContext_->getNConversationOnlyTokens();
+  std::shared_lock lock(stateMtx_);
+  if (state_->llmContext_) {
+    return state_->llmContext_->getNConversationOnlyTokens();
   }
   return 0;
 }
 
 llama_pos LlamaModel::getNPastBeforeTools() const {
-  if (llmContext_) {
-    return llmContext_->getNPastBeforeTools();
+  std::shared_lock lock(stateMtx_);
+  if (state_->llmContext_) {
+    return state_->llmContext_->getNPastBeforeTools();
   }
   return -1;
 }
