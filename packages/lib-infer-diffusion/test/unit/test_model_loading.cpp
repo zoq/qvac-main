@@ -16,7 +16,7 @@ protected:
     modelPath = sd_test_helpers::getModelPath();
     if (modelPath.empty())
       GTEST_SKIP() << "SD2.1 model not available — set SD_TEST_MODEL_PATH or "
-                       "download to test/model/";
+                      "download to test/model/";
   }
 
   std::unique_ptr<SdModel> makeModel() {

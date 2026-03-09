@@ -52,9 +52,8 @@ inline std::string getModelPath() {
 inline bool isPng(const std::vector<uint8_t>& buf) {
   if (buf.size() < 8)
     return false;
-  return buf[0] == 0x89 && buf[1] == 0x50 && buf[2] == 0x4E &&
-         buf[3] == 0x47 && buf[4] == 0x0D && buf[5] == 0x0A &&
-         buf[6] == 0x1A && buf[7] == 0x0A;
+  return buf[0] == 0x89 && buf[1] == 0x50 && buf[2] == 0x4E && buf[3] == 0x47 &&
+         buf[4] == 0x0D && buf[5] == 0x0A && buf[6] == 0x1A && buf[7] == 0x0A;
 }
 
 } // namespace sd_test_helpers

@@ -54,7 +54,7 @@ protected:
   void SetUp() override {
     if (!model)
       GTEST_SKIP() << "SD2.1 model not available — set SD_TEST_MODEL_PATH or "
-                       "download to test/model/";
+                      "download to test/model/";
   }
 };
 
@@ -99,7 +99,8 @@ TEST_F(SdFullGenerationTest, Txt2ImgMatchesIntegrationConfig) {
       << "Image must have valid PNG magic bytes";
 
   // -- Progress assertions ----------------------------------------------------
-  EXPECT_GT(progressTicks.size(), 0u) << "Must receive at least 1 progress tick";
+  EXPECT_GT(progressTicks.size(), 0u)
+      << "Must receive at least 1 progress tick";
 
   // The last tick should report total == 10 (the configured step count).
   // Progress JSON shape: {"step":N,"total":M,"elapsed_ms":T}
@@ -116,13 +117,14 @@ TEST_F(SdFullGenerationTest, Txt2ImgMatchesIntegrationConfig) {
   std::filesystem::create_directories(outDir);
   const std::string outPath = outDir + "/cpp-sd2-txt2img-seed42.png";
   std::ofstream ofs(outPath, std::ios::binary);
-  ofs.write(reinterpret_cast<const char*>(img.data()),
-            static_cast<std::streamsize>(img.size()));
+  ofs.write(
+      reinterpret_cast<const char*>(img.data()),
+      static_cast<std::streamsize>(img.size()));
   ofs.close();
   std::cout << "  Saved → " << outPath << std::endl;
 
   // -- Runtime stats ----------------------------------------------------------
   const auto stats = model->runtimeStats();
-  EXPECT_FALSE(stats.empty()) << "runtimeStats() should be populated after generation";
+  EXPECT_FALSE(stats.empty())
+      << "runtimeStats() should be populated after generation";
 }
-
