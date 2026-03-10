@@ -22,6 +22,14 @@ using namespace qvac_lib_inference_addon_llama::utils;
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TextLlmContext::~TextLlmContext() {
+  if (lctx_) {
+    llama_attach_threadpool(lctx_, nullptr, nullptr);
+  }
+  threadpoolBatch_.reset();
+  threadpool_.reset();
+}
+
 TextLlmContext::TextLlmContext(
     common_params& commonParams, common_init_result&& llamaInit)
     : llamaInit_(std::move(llamaInit)), params_(commonParams) {
@@ -103,17 +111,29 @@ TextLlmContext::TextLlmContext(
     }
 
     auto* reg = ggml_backend_dev_backend_reg(cpuDev);
-    void* procAddr =
+    void* newProcAddr =
         ggml_backend_reg_get_proc_address(reg, "ggml_threadpool_new");
-    if (procAddr == nullptr) {
+    if (newProcAddr == nullptr) {
       throw qvac_errors::StatusError(
           ADDON_ID,
           toString(UnableToCreateThreadPool),
           "Failed to get ggml_threadpool_new function address");
     }
+    void* freeProcAddr =
+        ggml_backend_reg_get_proc_address(reg, "ggml_threadpool_free");
+    if (freeProcAddr == nullptr) {
+      throw qvac_errors::StatusError(
+          ADDON_ID,
+          toString(UnableToCreateThreadPool),
+          "Failed to get ggml_threadpool_free function address");
+    }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto* ggmlThreadpoolNewFn =
-        reinterpret_cast<decltype(ggml_threadpool_new)*>(procAddr);
+        reinterpret_cast<decltype(ggml_threadpool_new)*>(newProcAddr);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* ggmlThreadpoolFreeFn =
+        reinterpret_cast<decltype(ggml_threadpool_free)*>(freeProcAddr);
+    ThreadPoolDeleter deleter(ggmlThreadpoolFreeFn);
 
     struct ggml_threadpool_params tppBatch =
         ggml_threadpool_params_from_cpu_params(params_.cpuparams_batch);
@@ -123,18 +143,17 @@ TextLlmContext::TextLlmContext(
     set_process_priority(params_.cpuparams_batch.priority);
 
     if (!ggml_threadpool_params_match(&tpp, &tppBatch)) {
-      threadpoolBatch_.reset(ggmlThreadpoolNewFn(&tppBatch));
+      threadpoolBatch_ = ThreadPoolPtr(ggmlThreadpoolNewFn(&tppBatch), deleter);
       if (!threadpoolBatch_) {
         throw qvac_errors::StatusError(
             ADDON_ID,
             toString(UnableToCreateThreadPool),
             "batch threadpool create failed");
       }
-      // Start the non-batch threadpool in the paused state
       tpp.paused = true;
     }
 
-    threadpool_.reset(ggmlThreadpoolNewFn(&tpp));
+    threadpool_ = ThreadPoolPtr(ggmlThreadpoolNewFn(&tpp), deleter);
     if (!threadpool_) {
       throw qvac_errors::StatusError(
           ADDON_ID,

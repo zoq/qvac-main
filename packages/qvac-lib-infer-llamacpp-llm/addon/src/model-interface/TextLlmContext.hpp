@@ -19,8 +19,10 @@ public:
   // Constructor
   TextLlmContext(common_params& commonParams, common_init_result&& llamaInit);
 
-  // Destructor
-  ~TextLlmContext() override = default;
+  // Explicit destructor: detach threadpools from llama_context before freeing
+  // them, preventing use-after-free when llamaInit_ destructor later frees the
+  // context. Also avoids ggml backend registry lookups during process teardown.
+  ~TextLlmContext() override;
 
   /**
    * The eval message method. It evaluates the message and updates the context.
