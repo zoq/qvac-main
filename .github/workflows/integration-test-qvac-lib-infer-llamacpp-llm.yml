@@ -173,12 +173,14 @@ jobs:
         working-directory: ${{ env.WORKDIR }}
         run: bash scripts/pre-download-models.sh
         shell: bash
+        timeout-minutes: 120
 
       - name: Pre-download test models (Windows)
         if: ${{ matrix.platform == 'win32' }}
         working-directory: ${{ env.WORKDIR }}
         run: powershell -ExecutionPolicy Bypass -File scripts/pre-download-models.ps1
         shell: powershell
+        timeout-minutes: 120
 
       - name: Download prebuilds (from artifacts)
         if: ${{ !inputs.prebuild_package }}
@@ -266,6 +268,7 @@ jobs:
           npm run test:integration 2>&1 | tee test-output.log
           exit ${PIPESTATUS[0]}
         shell: bash
+        timeout-minutes: 180
         env:
           QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
 
@@ -276,5 +279,6 @@ jobs:
           npm run test:integration:generate
           bare test/integration/run-all.js --exit | Tee-Object test-output.log
         shell: powershell
+        timeout-minutes: 180
         env:
           QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}

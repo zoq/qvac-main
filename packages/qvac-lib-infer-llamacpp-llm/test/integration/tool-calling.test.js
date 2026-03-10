@@ -3,7 +3,7 @@
 const test = require('brittle')
 const FilesystemDL = require('@qvac/dl-filesystem')
 const LlmLlamacpp = require('../../index.js')
-const { ensureModel } = require('./utils')
+const { ensureModel, getTestTimeout } = require('./utils')
 const { attachSpecLogger } = require('./spec-logger')
 const os = require('bare-os')
 
@@ -181,7 +181,7 @@ async function runPrompt (model, prompt) {
   return await collectResponse(response)
 }
 
-test('[tools] prompt scenarios', { timeout: 1_800_000, skip: isDarwinX64 }, async t => {
+test('[tools] prompt scenarios', { timeout: getTestTimeout(1_800_000), skip: isDarwinX64 }, async t => {
   for (const modelVariant of TOOL_MODEL_VARIANTS) {
     const { model, release } = await createToolModel(modelVariant)
     const label = `[${modelVariant.id}]`

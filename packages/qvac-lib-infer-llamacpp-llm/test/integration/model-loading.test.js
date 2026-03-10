@@ -4,7 +4,7 @@ const test = require('brittle')
 const FilesystemDL = require('@qvac/dl-filesystem')
 
 const LlmLlamacpp = require('../../index.js')
-const { ensureModel } = require('./utils')
+const { ensureModel, getTestTimeout } = require('./utils')
 const HttpDL = require('./http-loader')
 const os = require('bare-os')
 const path = require('bare-path')
@@ -42,7 +42,7 @@ async function collectResponse (response) {
   return chunks.join('').trim()
 }
 
-test('filesystem loader can run inference end-to-end', { timeout: 600_000, skip: isDarwinX64 }, async t => {
+test('filesystem loader can run inference end-to-end', { timeout: getTestTimeout(), skip: isDarwinX64 }, async t => {
   const [modelName, dirPath] = await ensureModel({
     modelName: DEFAULT_MODEL.name,
     downloadUrl: DEFAULT_MODEL.url
@@ -80,7 +80,7 @@ test('filesystem loader can run inference end-to-end', { timeout: 600_000, skip:
   }
 })
 
-test('model unload is clean and idempotent', { timeout: 600_000 }, async t => {
+test('model unload is clean and idempotent', { timeout: getTestTimeout() }, async t => {
   const [modelName, dirPath] = await ensureModel({
     modelName: DEFAULT_MODEL.name,
     downloadUrl: DEFAULT_MODEL.url

@@ -4,6 +4,12 @@ const path = require('bare-path')
 const https = require('bare-https')
 const os = require('bare-os')
 
+const isMobile = os.platform() === 'ios' || os.platform() === 'android'
+/** 30 min on mobile (slow model download), configurable on desktop */
+function getTestTimeout (desktopMs = 600_000) {
+  return isMobile ? 1_800_000 : desktopMs
+}
+
 async function downloadFile (url, dest) {
   return new Promise((resolve, reject) => {
     let resolved = false
@@ -118,7 +124,6 @@ async function ensureModelPath ({ modelName, downloadUrl }) {
  */
 function getMediaPath (filename) {
   // Mobile environment - use asset loading from testAssets
-  const isMobile = os.platform() === 'ios' || os.platform() === 'android'
   if (isMobile && global.assetPaths) {
     const projectPath = `../../testAssets/${filename}`
 
@@ -210,5 +215,6 @@ module.exports = {
   ensureModel,
   ensureModelPath,
   getMediaPath,
+  getTestTimeout,
   makeOutputCollector
 }

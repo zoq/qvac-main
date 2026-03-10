@@ -4,7 +4,7 @@ const test = require('brittle')
 const path = require('bare-path')
 const FilesystemDL = require('@qvac/dl-filesystem')
 const LlmLlamacpp = require('../../index.js')
-const { ensureModel } = require('./utils')
+const { ensureModel, getTestTimeout } = require('./utils')
 const { attachSpecLogger } = require('./spec-logger')
 const os = require('bare-os')
 
@@ -159,7 +159,7 @@ function expectedSlides (nPredict, nDiscarded) {
 
 // n_discarded=32, n_predict=SLIDE_PREDICT
 test('Basic generation sliding', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip
 }, async t => {
   const { model, logs } = await setupModel(t, {
@@ -182,7 +182,7 @@ test('Basic generation sliding', {
 
 // n_discarded=0, n_predict=SLIDE_PREDICT
 test('Generation fails with context overflow when sliding disabled', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip
 }, async t => {
   const { model, logs } = await setupModel(t, {
@@ -209,7 +209,7 @@ test('Generation fails with context overflow when sliding disabled', {
 
 // n_discarded=16, n_predict=MANY_SLIDES_PREDICT
 test('Many slides with small n_discarded', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip
 }, async t => {
   const { model, logs } = await setupModel(t, {
@@ -232,7 +232,7 @@ test('Many slides with small n_discarded', {
 
 // n_discarded=99999, clamped to FREE_SLOTS - 1
 test('Large n_discarded is clamped to fit available context space', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip
 }, async t => {
   const { model, logs } = await setupModel(t, {
@@ -255,7 +255,7 @@ test('Large n_discarded is clamped to fit available context space', {
 
 // n_discarded=1, n_predict=SLIDE_PREDICT
 test('Sliding context works with minimal n_discarded of 1', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip
 }, async t => {
   const { model, logs } = await setupModel(t, {
@@ -284,7 +284,7 @@ test('Sliding context works with minimal n_discarded of 1', {
 //   n_past + nTokens - n_discarded = ~264 - 64 = ~200 < 256
 // :> discards n_discarded (64) tokens after first message
 test('Cached follow-up discards middle tokens to fit new message', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip
 }, async t => {
   const cachePath = path.join(
@@ -323,7 +323,7 @@ test('Cached follow-up discards middle tokens to fit new message', {
 //   n_discarded = 211 > 0
 // :> removes all middle tokens from pos 44 to 244
 test('Cached follow-up clears all middle tokens when discard window is exhausted', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip
 }, async t => {
   const cachePath = path.join(
@@ -358,7 +358,7 @@ test('Cached follow-up clears all middle tokens when discard window is exhausted
 //   full middle discard: leftTokens >= 0 (first condition fails)
 // :> no recovery possible, throws ContextOverflow
 test('Cached follow-up overflows when sliding is disabled and context is full', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip
 }, async t => {
   const cachePath = path.join(

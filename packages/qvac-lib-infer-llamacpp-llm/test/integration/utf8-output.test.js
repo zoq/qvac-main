@@ -3,7 +3,7 @@
 const test = require('brittle')
 const FilesystemDL = require('@qvac/dl-filesystem')
 const LlmLlamacpp = require('../../index.js')
-const { ensureModel } = require('./utils')
+const { ensureModel, getTestTimeout } = require('./utils')
 const { attachSpecLogger } = require('./spec-logger')
 const os = require('bare-os')
 
@@ -33,7 +33,7 @@ function containsEmoji (text) {
   return /\u{1F600}/u.test(text)
 }
 
-test('model returns UTF-8 emoji without truncation', { timeout: 600_000 }, async t => {
+test('model returns UTF-8 emoji without truncation', { timeout: getTestTimeout() }, async t => {
   const [modelName, dirPath] = await ensureModel({
     modelName: MODEL.name,
     downloadUrl: MODEL.url

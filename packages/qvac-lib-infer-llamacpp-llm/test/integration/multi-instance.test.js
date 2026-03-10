@@ -3,7 +3,7 @@
 const test = require('brittle')
 const FilesystemDL = require('@qvac/dl-filesystem')
 const LlmLlamacpp = require('../../index.js')
-const { ensureModel } = require('./utils')
+const { ensureModel, getTestTimeout } = require('./utils')
 const os = require('bare-os')
 
 const platform = os.platform()
@@ -66,7 +66,7 @@ async function collectResponse (response) {
 }
 
 test('Two instances can run inference simultaneously', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip: isWindowsX64 // TODO: unskip this once we have a new Windows runner with a GPU
 }, async t => {
   const [modelName, dirPath] = await ensureModel({
@@ -100,7 +100,7 @@ test('Two instances can run inference simultaneously', {
 })
 
 test('Repeated load/unload cycles should remain stable', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip: isWindowsX64 // TODO: unskip this once we have a new Windows runner with a GPU
 }, async t => {
   const [modelName, dirPath] = await ensureModel({
@@ -129,7 +129,7 @@ test('Repeated load/unload cycles should remain stable', {
 })
 
 test('Unloading one instance does not affect another generating instance', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip: isWindowsX64 // TODO: unskip this once we have a new Windows runner with a GPU
 }, async t => {
   const [modelName, dirPath] = await ensureModel({
@@ -193,7 +193,7 @@ test('Unloading one instance does not affect another generating instance', {
 })
 
 test('Multiple load/unload cycles on one instance while another generates', {
-  timeout: 900_000,
+  timeout: getTestTimeout(900_000),
   skip: isWindowsX64 // TODO: unskip this once we have a new Windows runner with a GPU
 }, async t => {
   const [modelName, dirPath] = await ensureModel({

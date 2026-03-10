@@ -1,7 +1,7 @@
 'use strict'
 
 const test = require('brittle')
-const { ensureModel } = require('./utils')
+const { ensureModel, getTestTimeout } = require('./utils')
 const { attachSpecLogger } = require('./spec-logger')
 const os = require('bare-os')
 const FilesystemDL = require('@qvac/dl-filesystem')
@@ -130,7 +130,7 @@ function createFollowUpMessages (initialMessages, previousResponse) {
 }
 test('reasoning tag EOS replacement works with tools=false', {
   skip: isDarwinX64 || isWindowsX64, // TODO: unskip isWindowsX64 once we have GPU, takes too long
-  timeout: 600_000
+  timeout: getTestTimeout()
 }, async t => {
   const { inference } = await setupReasoningModel(t, false)
 
@@ -152,7 +152,7 @@ test('reasoning tag EOS replacement works with tools=false', {
 
 test('reasoning tag EOS replacement works with tools=true', {
   skip: isDarwinX64 || isWindowsX64, // TODO: unskip isWindowsX64 once we have GPU, takes too long
-  timeout: 600_000
+  timeout: getTestTimeout()
 }, async t => {
   const { inference } = await setupReasoningModel(t, true)
 

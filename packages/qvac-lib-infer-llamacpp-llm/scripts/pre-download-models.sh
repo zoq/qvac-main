@@ -15,7 +15,7 @@ download_if_missing () {
     return 0
   fi
   echo "Downloading $name..."
-  curl -L -f -o "$name" "$url" || { echo "Failed to download $name"; return 1; }
+  curl -L -f --connect-timeout 60 --max-time 3600 -o "$name" "$url" || { echo "Failed to download $name"; return 1; }
   echo "✓ $name ready ($(du -h "$name" | cut -f1))"
 }
 

@@ -5,7 +5,7 @@
 const test = require('brittle')
 const FilesystemDL = require('@qvac/dl-filesystem')
 const LlmLlamacpp = require('../../index.js')
-const { ensureModel } = require('./utils')
+const { ensureModel, getTestTimeout } = require('./utils')
 const { attachSpecLogger } = require('./spec-logger')
 const os = require('bare-os')
 
@@ -73,7 +73,7 @@ async function collectResponse (response) {
 
 const toNumber = value => typeof value === 'number' ? value : Number(value || 0)
 
-test('idle | run: allowed, returns QvacResponse', { timeout: 600_000 }, async t => {
+test('idle | run: allowed, returns QvacResponse', { timeout: getTestTimeout() }, async t => {
   const { model } = await setupModel(t)
   const response = await model.run(BASE_PROMPT)
   t.ok(response, 'run() returns a response')
@@ -83,7 +83,7 @@ test('idle | run: allowed, returns QvacResponse', { timeout: 600_000 }, async t 
   t.ok(output.length > 0, 'inference produces output')
 })
 
-test('idle | run with prefill: evaluates prompt without token generation', { timeout: 600_000 }, async t => {
+test('idle | run with prefill: evaluates prompt without token generation', { timeout: getTestTimeout() }, async t => {
   const { model } = await setupModel(t)
 
   const prefillResponse = await model.run(BASE_PROMPT, { prefill: true })
@@ -110,13 +110,13 @@ test('idle | run with prefill: evaluates prompt without token generation', { tim
   t.ok(normalOutput.length > 0, 'normal run still generates output after prefill')
 })
 
-test('idle | cancel: allowed, no-op', { timeout: 600_000 }, async t => {
+test('idle | cancel: allowed, no-op', { timeout: getTestTimeout() }, async t => {
   const { model } = await setupModel(t)
   await model.cancel()
   t.pass('cancel when idle does not throw')
 })
 
-test('run | cancel: allowed, cancels current job', { timeout: 600_000 }, async t => {
+test('run | cancel: allowed, cancels current job', { timeout: getTestTimeout() }, async t => {
   const { model } = await setupModel(t)
   const response = await model.run(LONG_PROMPT)
   const cancelPromise = model.cancel()
@@ -129,7 +129,7 @@ test('run | cancel: allowed, cancels current job', { timeout: 600_000 }, async t
   t.pass('cancel during run resolves and stops job')
 })
 
-test('run | run: second run() throws busy error', { timeout: 600_000 }, async t => {
+test('run | run: second run() throws busy error', { timeout: getTestTimeout() }, async t => {
   const { model } = await setupModel(t, { n_predict: '256' })
   const firstResponse = await model.run(LONG_PROMPT)
   let firstError = null

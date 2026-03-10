@@ -3,7 +3,7 @@
 const test = require('brittle')
 const fs = require('bare-fs')
 const path = require('bare-path')
-const { ensureModel, getMediaPath } = require('./utils')
+const { ensureModel, getMediaPath, getTestTimeout } = require('./utils')
 const FilesystemDL = require('@qvac/dl-filesystem')
 const LlmLlamacpp = require('../../index.js')
 const os = require('bare-os')
@@ -42,7 +42,7 @@ const LARGE_MULTIMODAL_CONFIG = {
 }
 
 const TEST_CONSTANTS = {
-  timeout: 900_000, // 15 minutes
+  timeout: getTestTimeout(900_000), // 15 min desktop, 30 min mobile
   maxWaitSeconds: 1000,
   defaultPrompt: 'Describe the image briefly in one sentence.'
 }
