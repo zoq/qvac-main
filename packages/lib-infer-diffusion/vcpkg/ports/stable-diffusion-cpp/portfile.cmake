@@ -21,6 +21,8 @@ vcpkg_from_github(
     HEAD_REF master
     PATCHES
         sd-cpu-only.patch
+        abort-callback.patch
+        fix-failure-path-cleanup.patch
 )
 
 # --- GPU feature flags ---
