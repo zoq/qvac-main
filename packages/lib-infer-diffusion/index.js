@@ -7,6 +7,7 @@ const WeightsProvider = require('@qvac/infer-base/WeightsProvider/WeightsProvide
 const { SdInterface } = require('./addon')
 
 const noop = () => {}
+const LOG_METHODS = ['error', 'warn', 'info', 'debug']
 
 /** Max ms to wait for the previous job to finish before throwing. */
 const PREVIOUS_JOB_WAIT_MS = 30
@@ -142,12 +143,36 @@ class ImgStableDiffusion extends BaseInference {
    * @returns {SdInterface}
    */
   _createAddon (configurationParams) {
-    const binding = require('./binding')
+    this._binding = require('./binding')
+    this._connectNativeLogger()
     return new SdInterface(
-      binding,
+      this._binding,
       configurationParams,
       this._addonOutputCallback.bind(this)
     )
+  }
+
+  _connectNativeLogger () {
+    if (!this._binding || !this.logger) return
+    try {
+      this._binding.setLogger((priority, message) => {
+        const method = LOG_METHODS[priority] || 'info'
+        if (typeof this.logger[method] === 'function') {
+          this.logger[method](`[C++] ${message}`)
+        }
+      })
+      this._nativeLoggerActive = true
+    } catch (err) {
+      this.logger.warn('Failed to connect native logger:', err.message)
+    }
+  }
+
+  _releaseNativeLogger () {
+    if (!this._nativeLoggerActive || !this._binding) return
+    try {
+      this._binding.releaseLogger()
+    } catch (_) {}
+    this._nativeLoggerActive = false
   }
 
   _addonOutputCallback (addon, event, data, error) {
@@ -194,6 +219,7 @@ class ImgStableDiffusion extends BaseInference {
       if (this.addon) {
         await super.unload()
       }
+      this._releaseNativeLogger()
     })
   }
 

@@ -2,6 +2,8 @@
 
 #include <qvac-lib-inference-addon-cpp/Errors.hpp>
 
+#include "utils/LoggingMacros.hpp"
+
 namespace qvac_lib_inference_addon_sd {
 
 using namespace qvac_errors;
@@ -257,6 +259,15 @@ const SdCtxHandlersMap SD_CTX_HANDLERS = {
     {"force_sdxl_vae_conv_scale",
      [](SdCtxConfig& c, const std::string& v) {
        c.forceSDXLVaeConvScale = parseBool(v, "force_sdxl_vae_conv_scale");
+     }},
+
+    // ── Logging
+    // ────────────────────────────────────────────────────────────────
+
+    {"verbosity",
+     [](SdCtxConfig& /*c*/, const std::string& v) {
+       std::unordered_map<std::string, std::string> m{{"verbosity", v}};
+       logging::setVerbosityLevel(m);
      }},
 
 };
