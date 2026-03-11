@@ -8,7 +8,7 @@ Set-Location $ModelDir
 function Download-IfMissing {
     param([string]$Name, [string]$Url)
     if (Test-Path $Name) {
-        Write-Host "✓ $Name already present"
+        Write-Host "[OK] $Name already present"
         return
     }
     Write-Host "Downloading $Name..."
@@ -19,7 +19,7 @@ function Download-IfMissing {
         throw
     }
     $size = (Get-Item $Name).Length / 1MB
-    Write-Host "✓ $Name ready ($([math]::Round($size, 1)) MB)"
+    Write-Host "[OK] $Name ready ($([math]::Round($size, 1)) MB)"
 }
 
 Download-IfMissing "Qwen3-0.6B-Q8_0.gguf" "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf"

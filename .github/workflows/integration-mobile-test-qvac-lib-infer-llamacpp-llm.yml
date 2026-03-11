@@ -980,6 +980,39 @@ jobs:
             printf '      - echo "Creating wdio config for Device Farm..."\n'
             printf '      - echo "%s" | base64 -d > tests/wdio.config.devicefarm.js\n' "$WDIO_CONFIG_B64"
             printf '      - cat tests/wdio.config.devicefarm.js\n'
+
+          # Android-specific: pre-download test models and push to device via adb
+          # Models are staged at /data/local/tmp/qvac-test-models/ which ensureModel checks first
+          if [ "${{ matrix.platform }}" == "Android" ]; then
+            printf '      - |\n'
+            printf '        echo "📦 Pre-downloading test models to device..."\n'
+            printf '        MODEL_DIR="/tmp/qvac-test-models"\n'
+            printf '        DEVICE_DIR="/data/local/tmp/qvac-test-models"\n'
+            printf '        mkdir -p "$MODEL_DIR"\n'
+            printf '        adb shell "mkdir -p $DEVICE_DIR" 2>/dev/null || true\n'
+            printf '        curl -L --max-time 600 --retry 2 -o "$MODEL_DIR/Qwen3-0.6B-Q8_0.gguf" \\\n'
+            printf '          "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf" &\n'
+            printf '        PID1=$!\n'
+            printf '        curl -L --max-time 600 --retry 2 -o "$MODEL_DIR/Llama-3.2-1B-Instruct-Q4_0.gguf" \\\n'
+            printf '          "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_0.gguf" &\n'
+            printf '        PID2=$!\n'
+            printf '        echo "Downloading models in background (PIDs: $PID1, $PID2)..."\n'
+            printf '        wait $PID1 $PID2 || true\n'
+            printf '        for MODEL_FILE in Qwen3-0.6B-Q8_0.gguf Llama-3.2-1B-Instruct-Q4_0.gguf; do\n'
+            printf '          if [ -f "$MODEL_DIR/$MODEL_FILE" ] && [ -s "$MODEL_DIR/$MODEL_FILE" ]; then\n'
+            printf '            SIZE=$(du -h "$MODEL_DIR/$MODEL_FILE" | cut -f1)\n'
+            printf '            echo "Pushing $MODEL_FILE ($SIZE) to device..."\n'
+            printf '            adb push "$MODEL_DIR/$MODEL_FILE" "$DEVICE_DIR/$MODEL_FILE" && \\\n'
+            printf '              echo "✅ $MODEL_FILE staged on device" || \\\n'
+            printf '              echo "⚠️  adb push failed for $MODEL_FILE (will download in-app)"\n'
+            printf '            rm -f "$MODEL_DIR/$MODEL_FILE"\n'
+            printf '          else\n'
+            printf '            echo "⚠️  Download failed for $MODEL_FILE (will download in-app)"\n'
+            printf '          fi\n'
+            printf '        done\n'
+            printf '        adb shell "ls -la $DEVICE_DIR/" 2>/dev/null || true\n'
+            printf '        echo "📦 Model pre-staging complete"\n'
+          fi
           
           # iOS-specific WebDriverAgent configuration (only for iOS platform)
           if [ "${{ matrix.platform }}" == "iOS" ]; then

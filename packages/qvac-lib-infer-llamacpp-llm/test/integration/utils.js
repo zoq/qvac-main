@@ -5,28 +5,52 @@ const https = require('bare-https')
 const os = require('bare-os')
 
 const isMobile = os.platform() === 'ios' || os.platform() === 'android'
+const isAndroid = os.platform() === 'android'
+
 /** 30 min on mobile (slow model download), configurable on desktop */
 function getTestTimeout (desktopMs = 600_000) {
   return isMobile ? 1_800_000 : desktopMs
 }
 
+const DOWNLOAD_TIMEOUT_MS = 600_000
+const MAX_RETRIES = 3
+const PROGRESS_INTERVAL_MS = 15_000
+const ANDROID_PRE_STAGED_DIR = '/data/local/tmp/qvac-test-models'
+
 async function downloadFile (url, dest) {
   return new Promise((resolve, reject) => {
     let resolved = false
+    let progressTimer = null
+    let timeoutTimer = null
+
+    const cleanup = () => {
+      if (progressTimer) { clearInterval(progressTimer); progressTimer = null }
+      if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null }
+    }
+
     const safeResolve = () => {
       if (!resolved) {
         resolved = true
+        cleanup()
         resolve()
       }
     }
     const safeReject = (err) => {
       if (!resolved) {
         resolved = true
+        cleanup()
         reject(err)
       }
     }
 
     const file = fs.createWriteStream(dest)
+
+    timeoutTimer = setTimeout(() => {
+      console.error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS / 1000}s`)
+      try { file.destroy() } catch (_) {}
+      try { req.destroy() } catch (_) {}
+      fs.unlink(dest, () => safeReject(new Error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS / 1000}s for ${url}`)))
+    }, DOWNLOAD_TIMEOUT_MS)
 
     file.on('error', (err) => {
       file.destroy()
@@ -34,18 +58,15 @@ async function downloadFile (url, dest) {
     })
 
     const req = https.request(url, response => {
-      // Handle redirects (added 307, 308 for Windows model download)
       if ([301, 302, 307, 308].includes(response.statusCode)) {
         file.destroy()
-        // Wait for unlink to complete before recursive call (fixes Windows race condition)
+        cleanup()
         fs.unlink(dest, (unlinkErr) => {
-          // Ignore ENOENT - file may not exist yet
           if (unlinkErr && unlinkErr.code !== 'ENOENT') {
             return safeReject(unlinkErr)
           }
 
           let redirectUrl = response.headers.location
-          // Handle relative redirects
           if (redirectUrl.startsWith('/')) {
             const originalUrl = new URL(url)
             redirectUrl = `${originalUrl.protocol}//${originalUrl.host}${redirectUrl}`
@@ -64,6 +85,28 @@ async function downloadFile (url, dest) {
         return
       }
 
+      const contentLength = parseInt(response.headers['content-length'], 10) || null
+      if (contentLength) {
+        console.log(`Download started: ${(contentLength / 1024 / 1024).toFixed(1)}MB`)
+      } else {
+        console.log('Download started (unknown size)')
+      }
+
+      progressTimer = setInterval(() => {
+        try {
+          if (fs.existsSync(dest)) {
+            const st = fs.statSync(dest)
+            const mb = (st.size / 1024 / 1024).toFixed(1)
+            if (contentLength) {
+              const pct = ((st.size / contentLength) * 100).toFixed(1)
+              console.log(`Download progress: ${mb}MB / ${(contentLength / 1024 / 1024).toFixed(1)}MB (${pct}%)`)
+            } else {
+              console.log(`Download progress: ${mb}MB`)
+            }
+          }
+        } catch (_) {}
+      }, PROGRESS_INTERVAL_MS)
+
       response.on('error', (err) => {
         file.destroy()
         fs.unlink(dest, () => safeReject(err))
@@ -71,7 +114,6 @@ async function downloadFile (url, dest) {
 
       response.pipe(file)
 
-      // Wait for 'close' event to ensure data is fully flushed to disk (important on Windows)
       file.on('close', () => {
         safeResolve()
       })
@@ -86,23 +128,85 @@ async function downloadFile (url, dest) {
   })
 }
 
+function findPreStagedModel (modelName) {
+  if (!isAndroid) return null
+  try {
+    const staged = `${ANDROID_PRE_STAGED_DIR}/${modelName}`
+    if (fs.existsSync(staged)) {
+      const st = fs.statSync(staged)
+      if (st.size > 0) return staged
+    }
+  } catch (_) {}
+  return null
+}
+
 async function ensureModel ({ modelName, downloadUrl }) {
   const modelDir = path.resolve(__dirname, '../model')
-
   const modelPath = path.join(modelDir, modelName)
 
   if (fs.existsSync(modelPath)) {
-    return [modelName, modelDir]
+    try {
+      const st = fs.statSync(modelPath)
+      if (st.size > 0) return [modelName, modelDir]
+      fs.unlinkSync(modelPath)
+    } catch (_) {}
+  }
+
+  const preStagedPath = findPreStagedModel(modelName)
+  if (preStagedPath) {
+    console.log(`Found pre-staged model at ${preStagedPath}`)
+    fs.mkdirSync(modelDir, { recursive: true })
+    try {
+      const src = fs.createReadStream(preStagedPath)
+      const dst = fs.createWriteStream(modelPath)
+      await new Promise((resolve, reject) => {
+        src.on('error', reject)
+        dst.on('error', reject)
+        dst.on('close', resolve)
+        src.pipe(dst)
+      })
+      const st = fs.statSync(modelPath)
+      console.log(`Model ready (pre-staged): ${(st.size / 1024 / 1024).toFixed(1)}MB`)
+      return [modelName, modelDir]
+    } catch (err) {
+      console.error(`Failed to copy pre-staged model: ${err.message}`)
+      try { fs.unlinkSync(modelPath) } catch (_) {}
+    }
   }
 
   fs.mkdirSync(modelDir, { recursive: true })
-  console.log(`Downloading test model ${modelName}...`)
 
-  await downloadFile(downloadUrl, modelPath)
+  let lastError = null
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`Downloading ${modelName} (attempt ${attempt}/${MAX_RETRIES})...`)
+      await downloadFile(downloadUrl, modelPath)
 
-  const stats = fs.statSync(modelPath)
-  console.log(`Model ready: ${(stats.size / 1024 / 1024).toFixed(1)}MB`)
-  return [modelName, modelDir]
+      if (!fs.existsSync(modelPath)) {
+        throw new Error(`File not found after download: ${modelPath}`)
+      }
+      const st = fs.statSync(modelPath)
+      if (st.size === 0) {
+        fs.unlinkSync(modelPath)
+        throw new Error('Downloaded file is empty (0 bytes)')
+      }
+
+      console.log(`Model ready: ${(st.size / 1024 / 1024).toFixed(1)}MB`)
+      return [modelName, modelDir]
+    } catch (err) {
+      lastError = err
+      console.error(`Download attempt ${attempt} failed: ${err.message}`)
+      try { fs.unlinkSync(modelPath) } catch (_) {}
+
+      if (attempt < MAX_RETRIES) {
+        const delay = attempt * 10_000
+        console.log(`Retrying in ${delay / 1000}s...`)
+        await new Promise(r => setTimeout(r, delay))
+      }
+    }
+  }
+
+  throw new Error(`Failed to download ${modelName} after ${MAX_RETRIES} attempts: ${lastError ? lastError.message : 'unknown error'}`)
 }
 
 async function ensureModelPath ({ modelName, downloadUrl }) {
