@@ -270,11 +270,9 @@ jobs:
         if: ${{ matrix.platform == 'win32' }}
         working-directory: ${{ env.WORKDIR }}
         run: |
-          $output = npm run test:integration 2>&1
-          $ec = $LASTEXITCODE
-          $output | Tee-Object -FilePath test-output.log
-          exit $ec
-        shell: powershell
-        timeout-minutes: 180
+          npm run test:integration:generate
+          bare test/integration/all.js --exit 2>&1 | tee test-output.log
+          exit ${PIPESTATUS[0]}
+        shell: bash
         env:
           QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
