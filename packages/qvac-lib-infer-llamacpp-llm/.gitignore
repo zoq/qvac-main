@@ -8,6 +8,7 @@ prebuilds/
 
 test/unit/all.js
 test/integration/all.js
+test/integration/.exit-code
 test/model/
 .npmrc
 package-lock.json
@@ -25,8 +26,7 @@ p2p-models/
 *.gguf
 *.log
 .clang-tidy
-# Added by qvac-lint-cpp
-.clang-format
+# .clang-format committed for cpp-lint (CI may run before bare-make generate)
 benchmarks/results
 benchmarks/performance/results/
 benchmarks/performance/models/
