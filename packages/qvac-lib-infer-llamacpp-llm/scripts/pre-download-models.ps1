@@ -1,7 +1,7 @@
 # Pre-download GGUF models for integration tests (Windows).
 # Run before tests in CI to avoid download timeouts.
 $ErrorActionPreference = "Stop"
-$ModelDir = Join-Path $PSScriptRoot ".." "test" "model"
+$ModelDir = Join-Path (Join-Path (Join-Path $PSScriptRoot "..") "test") "model"
 New-Item -ItemType Directory -Force -Path $ModelDir | Out-Null
 Set-Location $ModelDir
 
