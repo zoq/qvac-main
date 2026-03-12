@@ -430,6 +430,7 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
       state_->llmContext_->getNPast() > state_->llmContext_->getNPastBeforeTools()) {
     state_->llmContext_->removeLastNTokens(
         state_->llmContext_->getNPast() - state_->llmContext_->getNPastBeforeTools());
+    state_->llmContext_->setNPastBeforeTools(-1);
   }
   if (resolved.shouldResetAfterInference) {
     resetState(false);

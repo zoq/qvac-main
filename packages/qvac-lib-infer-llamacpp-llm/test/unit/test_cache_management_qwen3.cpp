@@ -274,12 +274,10 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
 
   auto stats1 = model->runtimeStats();
   double cacheTokens1 = getStatValue(stats1, "CacheTokens");
-  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens1=%f\n", cacheTokens1);
+  double promptTokens1 = getStatValue(stats1, "promptTokens");
+  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens1=%f promptTokens1=%f\n", cacheTokens1, promptTokens1);
   EXPECT_GT(cacheTokens1, 0.0);
-
-  llama_pos nPastBeforeTools = model->getNPastBeforeTools();
-  EXPECT_GT(nPastBeforeTools, 0);
-  EXPECT_LT(nPastBeforeTools, cacheTokens1);
+  EXPECT_GT(promptTokens1, 500.0);
 
   const int maxExpectedCacheTokens = 50;
   EXPECT_GT(cacheTokens1, 0);
@@ -297,13 +295,13 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
 
   auto stats2 = model->runtimeStats();
   double cacheTokens2 = getStatValue(stats2, "CacheTokens");
-  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens2=%f\n", cacheTokens2);
+  double promptTokens2 = getStatValue(stats2, "promptTokens");
+  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens2=%f, promptTokens2=%f\n", cacheTokens2, promptTokens2);
   EXPECT_GT(cacheTokens2, cacheTokens1);
+  EXPECT_LT(promptTokens2, 500.0);
   EXPECT_LE(cacheTokens2, maxExpectedCacheTokens)
       << "Cache tokens (" << cacheTokens1 << ") should not exceed "
       << maxExpectedCacheTokens << " - function tokens should be trimmed";
-
-  EXPECT_LE(nPastBeforeTools, cacheTokens2);
 
   std::string saveInput =
       R"([{"role": "session", "content": "test_session1_qwen3.bin"}, {"role": "session", "content": "save"}])";
@@ -313,6 +311,46 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
   });
 
   EXPECT_TRUE(fs::exists(session1_path));
+
+  model.reset();
+
+  auto model2 = createModel();
+  if (!model2) {
+    FAIL() << "Model2 failed to load";
+  }
+
+  std::string input3 =
+      R"([{"role": "session", "content": "test_session1_qwen3.bin"}, {"role": "user", "content": "What about Paris?"}])";
+
+  EXPECT_NO_THROW({
+    std::string output = processPromptString(model2, input3);
+    EXPECT_GE(output.length(), 0);
+  });
+
+  auto stats3 = model2->runtimeStats();
+  double cacheTokens3 = getStatValue(stats3, "CacheTokens");
+  double promptTokens3 = getStatValue(stats3, "promptTokens");
+  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens3=%f, promptTokens3=%f\n", cacheTokens3, promptTokens3);
+
+  EXPECT_GT(cacheTokens3, cacheTokens2);
+  EXPECT_LT(promptTokens3, 100.0);
+
+  auto model3 = createModel();
+  if (!model3) {
+    FAIL() << "Model3 failed to load";
+  }
+
+  std::string getTokensInput =
+      R"([{"role": "session", "content": "test_session1_qwen3.bin"}, {"role": "session", "content": "getTokens"}])";
+  EXPECT_NO_THROW({
+    std::string output = processPromptString(model3, getTokensInput);
+    EXPECT_EQ(output.length(), 0);
+  });
+
+  auto stats4 = model3->runtimeStats();
+  double cacheTokens4 = getStatValue(stats4, "CacheTokens");
+  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens4=%f\n", cacheTokens4);
+  EXPECT_EQ(cacheTokens4, cacheTokens2);
 }
 
 TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeTrimOnlyWhenNPastBeforeToolsPositive) {

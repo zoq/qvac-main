@@ -518,6 +518,7 @@ bool TextLlmContext::generateResponse(
 void TextLlmContext::stop() { stopGeneration_.store(true); }
 
 void TextLlmContext::resetState(bool resetStats) {
+  printf("TextLlmContext::resetState resetStats=%d\n", resetStats);
   // Reset the n_past
 
   // Reset conversation-only tokens and nPastBeforeTools
