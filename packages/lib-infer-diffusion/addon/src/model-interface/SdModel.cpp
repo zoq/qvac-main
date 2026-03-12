@@ -93,6 +93,12 @@ void SdModel::load() {
   sd_ctx_params_t params{};
   sd_ctx_params_init(&params);
 
+  // Load the VAE encoder as well as the decoder so img2img (encode → denoise →
+  // decode) works.  sd_ctx_params_init() sets vae_decode_only = true by
+  // default which skips building the encoder graph and causes:
+  //   GGML_ASSERT(!decode_only || decode_graph) in vae_encode()
+  params.vae_decode_only = false;
+
   // ── Model paths ────────────────────────────────────────────────────────────
   // For FLUX.2 [klein] the GGUF contains only diffusion weights with no SD
   // version metadata KV pairs, so we must use diffusion_model_path.
@@ -336,7 +342,9 @@ std::any SdModel::process(const std::any& input) {
 
   // ── img2img init image (bytes passed as JSON array) ───────────────────────
   sd_image_t initImg{};
+  sd_image_t maskImg{};
   std::vector<uint8_t> initPng;
+  std::vector<uint8_t> maskBuf; // owns the white-fill mask pixel data
 
   if (gen.mode == "img2img") {
     if (auto it = v.get<picojson::object>().find("init_image_bytes");
@@ -349,8 +357,37 @@ std::any SdModel::process(const std::any& input) {
     }
     if (!initPng.empty())
       initImg = decodePng(initPng);
+
+    if (initImg.data) {
+      const int imgW = static_cast<int>(initImg.width);
+      const int imgH = static_cast<int>(initImg.height);
+
+      // (1) Auto-detect genParams.width/height from the decoded init image.
+      //     generate_image() builds latent tensors of size genParams.width×height
+      //     then calls sd_image_to_ggml_tensor which asserts image.width == ne[0].
+      //     Keeping the defaults (512×512) when the image is 800×800 crashes.
+      QLOG_IF(qvac_lib_inference_addon_cpp::logger::Priority::INFO,
+              "img2img: init_image " + std::to_string(imgW) + "x" +
+                  std::to_string(imgH) + " overrides genParams " +
+                  std::to_string(genParams.width) + "x" +
+                  std::to_string(genParams.height));
+      genParams.width  = imgW;
+      genParams.height = imgH;
+
+      // (2) Provide a white-fill mask (all 255) so that sd_image_to_ggml_tensor
+      //     never sees mask_image.width == 0.
+      //     generate_image() always calls sd_image_to_ggml_tensor(mask_image, ...)
+      //     before init_image, with no null-guard — a zero-width mask aborts.
+      maskBuf.assign(static_cast<size_t>(imgW) * imgH, 255);
+      maskImg = sd_image_t{
+          static_cast<uint32_t>(imgW),
+          static_cast<uint32_t>(imgH),
+          1,
+          maskBuf.data()};
+    }
   }
   genParams.init_image = initImg;
+  genParams.mask_image = maskImg;
 
   // ── Generate ──────────────────────────────────────────────────────────────
   const auto t0 = std::chrono::steady_clock::now();
@@ -359,6 +396,7 @@ std::any SdModel::process(const std::any& input) {
 
   if (initImg.data)
     free(initImg.data);
+  // maskBuf owns the mask pixel data — freed automatically via RAII.
 
   const bool wasCancelled = cancelRequested_.load();
 

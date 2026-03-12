@@ -129,6 +129,18 @@ FLUX.2 [klein] uses a split model layout. Three separate components are required
 
 A machine with **16 GB of unified memory** (e.g. MacBook Air M-series) can run this model.
 
+### Image-to-image (img2img) models
+
+For img2img workflows, use the same models as txt2img. A convenience download script is provided:
+
+```bash
+./scripts/download-model-i2i.sh
+```
+
+This script downloads the same FLUX.2 [klein] models listed above. If you've already run `download-model.sh`, this script will detect the existing files and skip them.
+
+**Usage:** img2img transforms an existing image using a text prompt. See [`examples/img2img-flux2.js`](examples/img2img-flux2.js) for a complete example.
+
 ---
 
 ## Running the Examples
@@ -335,8 +347,11 @@ const response = await model.img2img({
   init_image: inputPng,
   strength: 0.75,  // 0.0 = no change, 1.0 = full redraw
   steps: 20
+  // Note: width/height are auto-detected from init_image
 })
 ```
+
+**Important:** Do not specify `width` or `height` parameters for img2img - dimensions are automatically detected from the input image.
 
 ### 8. Release Resources
 

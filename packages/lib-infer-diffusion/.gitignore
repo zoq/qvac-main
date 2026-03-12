@@ -5,6 +5,7 @@ models/
 store/
 node_modules/
 prebuilds/
+temp/
 
 .npmrc
 package-lock.json
