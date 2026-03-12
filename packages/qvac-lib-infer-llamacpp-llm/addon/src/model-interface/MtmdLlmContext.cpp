@@ -489,6 +489,10 @@ llama_pos MtmdLlmContext::getNPastBeforeTools() const {
   return nPastBeforeTools_;
 }
 
+void MtmdLlmContext::setNPastBeforeTools(llama_pos nPastBeforeTools) {
+  nPastBeforeTools_ = nPastBeforeTools;
+}
+
 void MtmdLlmContext::loadMedia(const std::vector<uint8_t>& media) {
   if (media.empty()) {
     resetMedia();

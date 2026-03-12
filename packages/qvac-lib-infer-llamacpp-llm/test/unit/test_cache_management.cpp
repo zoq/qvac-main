@@ -1172,7 +1172,7 @@ TEST_F(CacheManagementTest, CacheReloadWithToolsAtEndTrue) {
   EXPECT_GT(cacheTokensAfterReload, 0.0);
 
   llama_pos nPastBeforeTools2 = model2->getNPastBeforeTools();
-  EXPECT_EQ(nPastBeforeTools2, -1);
+  EXPECT_EQ(nPastBeforeTools2, nPastBeforeTools1);
   EXPECT_LE(nPastBeforeTools2, nPastBeforeTools1);
 }
 
@@ -1232,7 +1232,7 @@ TEST_F(CacheManagementTest, CacheToolsAtEndModeWithMultiplePrompts) {
   }
 
   std::string input1 =
-      R"([{"role": "session", "content": "test_session1.bin"}, {"role": "user", "content": "What is the weather in Tokyo?"}, {"type": "function", "name": "getWeather", "description": "Get weather forecast", "parameters": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}}])";
+      R"([{"role": "session", "content": "test_session1.bin"}, {"role": "user", "content": "Hi"}, {"type": "function", "name": "get_weather", "description": "Get detailed weather forecast data with temperature humidity wind speed precipitation UV visibility pressure sunrise sunset alerts", "parameters": {"type": "object", "properties": {"city": {"type": "string", "description": "The name of the city to get weather for"}, "country": {"type": "string", "description": "Country code or name"}, "lat": {"type": "number", "description": "Latitude coordinate"}, "lon": {"type": "number", "description": "Longitude coordinate"}, "zip": {"type": "string", "description": "ZIP postal code"}, "units": {"type": "string", "description": "Temperature units metric imperial or kelvin"}, "lang": {"type": "string", "description": "Language code for localized descriptions"}, "forecast_days": {"type": "integer", "description": "Number of days to forecast from 1 to 7"}, "hourly": {"type": "boolean", "description": "Include hourly forecast data"}, "alerts": {"type": "boolean", "description": "Include weather alerts and warnings"}, "aqi": {"type": "boolean", "description": "Include air quality index data"}, "tides": {"type": "boolean", "description": "Include tide information"}, "solar": {"type": "boolean", "description": "Include solar data like sunrise sunset"}, "tz": {"type": "string", "description": "Timezone identifier"}, "start_dt": {"type": "string", "description": "Start datetime for historical data"}, "end_dt": {"type": "string", "description": "End datetime for historical data"}, "cnt": {"type": "integer", "description": "Number of data points to return"}, "mode": {"type": "string", "description": "Response mode json xml or html"}, "appid": {"type": "string", "description": "API key for authentication"}}, "required": ["city"]}}])";
 
   EXPECT_NO_THROW({
     std::string output = processPromptString(model, input1);
@@ -1241,7 +1241,18 @@ TEST_F(CacheManagementTest, CacheToolsAtEndModeWithMultiplePrompts) {
 
   auto stats1 = model->runtimeStats();
   double cacheTokens1 = getStatValue(stats1, "CacheTokens");
+  printf("CacheManagementTest::CacheToolsAtEndModeWithMultiplePrompts cacheTokens1=%f\n", cacheTokens1);
   EXPECT_GT(cacheTokens1, 0.0);
+
+  llama_pos nPastBeforeTools = model->getNPastBeforeTools();
+  EXPECT_GT(nPastBeforeTools, 0);
+  EXPECT_LT(nPastBeforeTools, cacheTokens1);
+
+  const int maxExpectedCacheTokens = 50;
+  EXPECT_GT(cacheTokens1, 0);
+  EXPECT_LE(cacheTokens1, maxExpectedCacheTokens)
+      << "Cache tokens (" << cacheTokens1 << ") should not exceed "
+      << maxExpectedCacheTokens << " - function tokens should be trimmed";
 
   std::string input2 =
       R"([{"role": "session", "content": "test_session1.bin"}, {"role": "user", "content": "What about London?"}])";
@@ -1253,10 +1264,12 @@ TEST_F(CacheManagementTest, CacheToolsAtEndModeWithMultiplePrompts) {
 
   auto stats2 = model->runtimeStats();
   double cacheTokens2 = getStatValue(stats2, "CacheTokens");
-  EXPECT_GT(cacheTokens2, 0.0);
+  printf("CacheManagementTest::CacheToolsAtEndModeWithMultiplePrompts cacheTokens2=%f\n", cacheTokens2);
+  EXPECT_GT(cacheTokens2, cacheTokens1);
+  EXPECT_LE(cacheTokens2, maxExpectedCacheTokens)
+      << "Cache tokens (" << cacheTokens1 << ") should not exceed "
+      << maxExpectedCacheTokens << " - function tokens should be trimmed";
 
-  llama_pos nPastBeforeTools = model->getNPastBeforeTools();
-  EXPECT_GT(nPastBeforeTools, 0);
   EXPECT_LE(nPastBeforeTools, cacheTokens2);
 
   std::string saveInput =
@@ -1309,4 +1322,58 @@ TEST_F(CacheManagementTest, CacheToolsAtEndModeTrimOnlyWhenNPastBeforeToolsPosit
   auto statsAfterSave = model->runtimeStats();
   double cacheTokensAfterSave = getStatValue(statsAfterSave, "CacheTokens");
   EXPECT_EQ(cacheTokensAfterSave, cacheTokensBeforeSave);
+}
+
+TEST_F(CacheManagementTest, CacheToolsAtEndModeRestoresNPastBeforeTools) {
+  if (!isQwen3Model()) {
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+  }
+
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  config_files["tools_at_end"] = "true";
+  auto model = createModel();
+  if (!model) {
+    FAIL() << "Model failed to load";
+  }
+
+  std::string input1 =
+      R"([{"role": "session", "content": "test_session1.bin"}, {"role": "user", "content": "Hi"}, {"type": "function", "name": "get_weather", "description": "Get weather", "parameters": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}}])";
+
+  EXPECT_NO_THROW({
+    std::string output = processPromptString(model, input1);
+    EXPECT_GE(output.length(), 0);
+  });
+
+  llama_pos nPastBeforeTools1 = model->getNPastBeforeTools();
+  EXPECT_GT(nPastBeforeTools1, 0) << "nPastBeforeTools should be set after first prompt with tools";
+
+  std::string saveInput =
+      R"([{"role": "session", "content": "test_session1.bin"}, {"role": "session", "content": "save"}])";
+  EXPECT_NO_THROW({
+    std::string saveOutput = processPromptString(model, saveInput);
+    EXPECT_EQ(saveOutput.length(), 0);
+  });
+
+  EXPECT_TRUE(fs::exists(session1_path));
+
+  auto model2 = createModel();
+  if (!model2) {
+    FAIL() << "Model2 failed to load";
+  }
+
+  std::string input2 =
+      R"([{"role": "session", "content": "test_session1.bin"}, {"role": "user", "content": "What about London?"}])";
+
+  EXPECT_NO_THROW({
+    std::string output = processPromptString(model2, input2);
+    EXPECT_GE(output.length(), 0);
+  });
+
+  llama_pos nPastBeforeTools2 = model2->getNPastBeforeTools();
+  EXPECT_EQ(nPastBeforeTools2, nPastBeforeTools1)
+      << "nPastBeforeTools should be restored from session: expected " << nPastBeforeTools1
+      << " but got " << nPastBeforeTools2;
 }

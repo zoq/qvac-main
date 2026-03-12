@@ -201,6 +201,7 @@ public:
    */
   [[nodiscard]] virtual llama_pos getNPastBeforeTools() const { return -1; }
 
+  virtual void setNPastBeforeTools(llama_pos nPastBeforeTools) {}
   /**
    * The load media method. It loads the media from memory buffer.
    * Default implementation does nothing (for text-only contexts).

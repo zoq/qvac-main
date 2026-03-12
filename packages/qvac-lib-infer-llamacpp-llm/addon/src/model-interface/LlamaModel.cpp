@@ -376,15 +376,8 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
   std::string out;
   ResolvedPrompt resolved = resolveChatAndTools(prompt.input);
 
-  if (resolved.shouldResetAfterInference && llmContext_->getNPast() > 0) {
+  if (resolved.shouldResetAfterInference && state_->llmContext_->getNPast() > 0) {
     resetState(true);
-  }
-
-  if (toolsAtEnd_ && !resolved.tools.empty() &&
-      llmContext_->getNPastBeforeTools() > 0 &&
-      llmContext_->getNPast() > llmContext_->getNPastBeforeTools()) {
-    llmContext_->removeLastNTokens(
-        llmContext_->getNPast() - llmContext_->getNPastBeforeTools());
   }
 
   if (resolved.chatMsgs.empty() && resolved.tools.empty()) {
@@ -430,6 +423,12 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
 
   if (!prompt.outputCallback) {
     out = oss.str();
+  }
+  if (state_->toolsAtEnd_ && !resolved.tools.empty() &&
+      state_->llmContext_->getNPastBeforeTools() > 0 &&
+      state_->llmContext_->getNPast() > state_->llmContext_->getNPastBeforeTools()) {
+    state_->llmContext_->removeLastNTokens(
+        state_->llmContext_->getNPast() - state_->llmContext_->getNPastBeforeTools());
   }
   if (resolved.shouldResetAfterInference) {
     resetState(false);

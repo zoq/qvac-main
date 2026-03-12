@@ -109,6 +109,7 @@ public:
   [[nodiscard]] llama_pos getNConversationOnlyTokens() const override;
 
   [[nodiscard]] llama_pos getNPastBeforeTools() const override;
+  void setNPastBeforeTools(llama_pos nPastBeforeTools) override;
 
   /**
    * The reset state method. It resets the context.
