@@ -42,21 +42,23 @@ function ToastOverlay({ message }: { message: string | null }) {
 }
 
 export function LLMCopyButton({
-  /**
-   * A URL to fetch the raw Markdown/MDX content of page
-   */
   markdownUrl,
+  label,
 }: {
+  /** URL to fetch the raw Markdown/MDX content */
   markdownUrl: string;
+  /** Override the display label (defaults to last path segment) */
+  label?: string;
 }) {
   const [isLoading, setLoading] = useState(false);
   const [toastMessage, showToast] = useToastMessage();
 
   const fileLabel = useMemo(() => {
-    const pathname = markdownUrl.split('?')[0];
+    if (label) return label;
+    const pathname = markdownUrl.split('?')[0].replace(/\/$/, '');
     const parts = pathname.split('/').filter(Boolean);
     return parts[parts.length - 1] ?? markdownUrl;
-  }, [markdownUrl]);
+  }, [markdownUrl, label]);
 
   const [checked, onCopy] = useCopyButton(async () => {
     const cached = cache.get(markdownUrl);
@@ -152,11 +154,9 @@ const optionVariants = cva(
   'text-sm p-2 rounded-lg inline-flex items-center gap-2 hover:text-fd-accent-foreground hover:bg-fd-accent [&_svg]:size-4',
 );
 
-export function PageCopyButton({ slug }: { slug: string }) {
+export function PageCopyButton({ pageTextUrl }: { pageTextUrl: string }) {
   const [isLoading, setLoading] = useState(false);
   const [toastMessage, showToast] = useToastMessage();
-
-  const pageTextUrl = `/api/page-text?slug=${encodeURIComponent(slug)}`;
 
   const [checked, onCopy] = useCopyButton(async () => {
     const cached = cache.get(pageTextUrl);

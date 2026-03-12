@@ -72,10 +72,13 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
       </DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <div className="flex flex-row gap-2 items-center border-b pb-6 -mt-6">
-        <LLMCopyButton markdownUrl={`/llms-full.txt?version=${getVersionFromPath(page.url) ?? LATEST_VERSION}`} />
-        <PageCopyButton slug={page.url.replace(/^\//, '')} />
+        <LLMCopyButton
+          markdownUrl={`/llms-full/${getVersionFromPath(page.url) ?? LATEST_VERSION}/`}
+          label="llms-full.txt"
+        />
+        <PageCopyButton pageTextUrl={`/api/page-text/${page.url.replace(/^\//, '')}/`} />
         <ViewOptions
-          markdownUrl={`/llms-full.txt?version=${getVersionFromPath(page.url) ?? LATEST_VERSION}`}
+          markdownUrl={`/llms-full/${getVersionFromPath(page.url) ?? LATEST_VERSION}/`}
         />
       </div>
       <DocsBody>
