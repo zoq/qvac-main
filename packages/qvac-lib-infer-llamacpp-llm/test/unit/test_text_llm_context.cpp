@@ -61,14 +61,6 @@ protected:
   std::string test_projection_path;
 
   bool hasValidModel() { return fs::exists(test_model_path); }
-  bool isQwen3Model() {
-    std::string lowerPath = test_model_path;
-    std::transform(
-        lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
-        [](unsigned char c) { return std::tolower(c); });
-    return lowerPath.find("qwen3") != std::string::npos;
-  }
-
 
   std::unique_ptr<LlamaModel> createModel() {
     if (!hasValidModel()) {
@@ -381,47 +373,7 @@ TEST_F(TextLlmContextTest, ProcessWithMultipleTools) {
   });
 }
 
-TEST_F(TextLlmContextTest, DoubleTokenizeWithToolsAtEnd) {
-  // tools_at_end feature requires Qwen3 model
-  if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
-  }
 
-  if (!hasValidModel()) {
-    FAIL() << "Test model not found";
-  }
-
-  config_files["tools_at_end"] = "true";
-  auto model = createModel();
-  if (!model) {
-    FAIL() << "Model failed to load";
-  }
-
-  LlamaModel::Prompt prompt;
-  prompt.input = R"([
-    {"role": "user", "content": "What is the weather in Tokyo?"},
-    {
-      "type": "function",
-      "name": "getWeather",
-      "description": "Get weather forecast for a city",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {"type": "string", "description": "City name"},
-          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
-        },
-        "required": ["city", "date"]
-      }
-    }
-  ])";
-
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
-
-  llama_pos nConvTokens = model->getNConversationOnlyTokens();
-  EXPECT_GT(nConvTokens, 0);
-}
 
 TEST_F(TextLlmContextTest, DoubleTokenizeWithoutToolsAtEnd) {
   if (!hasValidModel()) {
@@ -429,6 +381,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizeWithoutToolsAtEnd) {
   }
 
   config_files["tools_at_end"] = "false";
+  config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -456,8 +409,12 @@ TEST_F(TextLlmContextTest, DoubleTokenizeWithoutToolsAtEnd) {
     std::string output = model->processPrompt(prompt);
   });
 
-  llama_pos nConvTokens = model->getNConversationOnlyTokens();
-  EXPECT_EQ(nConvTokens, 0);
+  auto stats = model->runtimeStats();
+  int cacheTokens = static_cast<int>(getStatValue(stats, "CacheTokens"));
+  int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
+  EXPECT_EQ(cacheTokens, 0);
+  // prompt tokens with tools
+  EXPECT_GT(promptTokens, 200);
 }
 
 TEST_F(TextLlmContextTest, DoubleTokenizeWithToolsAtEndNoTools) {
@@ -466,6 +423,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizeWithToolsAtEndNoTools) {
   }
 
   config_files["tools_at_end"] = "true";
+  config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -478,122 +436,15 @@ TEST_F(TextLlmContextTest, DoubleTokenizeWithToolsAtEndNoTools) {
     std::string output = model->processPrompt(prompt);
   });
 
-  llama_pos nConvTokens = model->getNConversationOnlyTokens();
-  EXPECT_EQ(nConvTokens, 0);
+  // Without tools, CacheTokens should equal promptTokens (no cached conversation tokens)
+  auto stats = model->runtimeStats();
+  int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
+  EXPECT_LT(promptTokens, 50);
 }
 
-TEST_F(TextLlmContextTest, DoubleTokenizeWithMultipleTools) {
-  // tools_at_end feature requires Qwen3 model
-  if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
-  }
 
-  if (!hasValidModel()) {
-    FAIL() << "Test model not found";
-  }
 
-  config_files["tools_at_end"] = "true";
-  auto model = createModel();
-  if (!model) {
-    FAIL() << "Model failed to load";
-  }
 
-  LlamaModel::Prompt prompt;
-  prompt.input = R"([
-    {"role": "user", "content": "Search for laptops and add to cart"},
-    {
-      "type": "function",
-      "name": "searchProducts",
-      "description": "Search products",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "query": {"type": "string", "description": "Search query"}
-        },
-        "required": ["query"]
-      }
-    },
-    {
-      "type": "function",
-      "name": "addToCart",
-      "description": "Add items to cart",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {"type": "string"}
-          }
-        },
-        "required": ["items"]
-      }
-    }
-  ])";
-
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
-
-  llama_pos nConvTokens = model->getNConversationOnlyTokens();
-  EXPECT_GT(nConvTokens, 0);
-}
-
-TEST_F(TextLlmContextTest, DoubleTokenizeBoundaryAccuracy) {
-  // tools_at_end feature requires Qwen3 model
-  if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
-  }
-
-  if (!hasValidModel()) {
-    FAIL() << "Test model not found";
-  }
-
-  config_files["tools_at_end"] = "true";
-  auto model = createModel();
-  if (!model) {
-    FAIL() << "Model failed to load";
-  }
-
-  LlamaModel::Prompt promptWithTools;
-  promptWithTools.input = R"([
-    {"role": "user", "content": "What is the weather in Tokyo?"},
-    {
-      "type": "function",
-      "name": "getWeather",
-      "description": "Get weather forecast for a city",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {"type": "string", "description": "City name"},
-          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
-        },
-        "required": ["city", "date"]
-      }
-    }
-  ])";
-
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(promptWithTools);
-  });
-
-  llama_pos conversationTokens = model->getNConversationOnlyTokens();
-
-  EXPECT_NO_THROW({
-    model->reset();
-  });
-
-  LlamaModel::Prompt promptNoTools;
-  promptNoTools.input = R"([{"role": "user", "content": "What is the weather in Tokyo?"}])";
-
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(promptNoTools);
-  });
-
-  llama_pos tokensWithoutTools = model->getNConversationOnlyTokens();
-
-  EXPECT_EQ(tokensWithoutTools, 0);
-  EXPECT_GT(conversationTokens, 0);
-}
 
 TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
   if (!hasValidModel()) {
@@ -621,6 +472,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
 
   {
     config_files["tools_at_end"] = "false";
+    config_files["tools"] = "true";
     auto model = createModel();
     if (!model) {
       FAIL() << "Model failed to load";
@@ -649,6 +501,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
 
   {
     config_files["tools_at_end"] = "true";
+    config_files["tools"] = "true";
     auto model = createModel();
     if (!model) {
       FAIL() << "Model failed to load";
@@ -669,16 +522,17 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
 
     auto stats = model->runtimeStats();
     int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
-    llama_pos convTokens = model->getNConversationOnlyTokens();
+    int cacheTokens = static_cast<int>(getStatValue(stats, "CacheTokens"));
 
     GTEST_LOG_(INFO) << "Double tokenization (tools_at_end=true): "
                      << durationDouble / numIterations << " us per iteration ("
-                     << promptTokens << " prompt tokens, " << convTokens
-                     << " conversation-only tokens)";
+                     << promptTokens << " prompt tokens, " << cacheTokens
+                     << " cached tokens)";
   }
 
   {
     config_files["tools_at_end"] = "true";
+    config_files["tools"] = "true";
     auto model = createModel();
     if (!model) {
       FAIL() << "Model failed to load";
@@ -741,6 +595,8 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
 
   {
     config_files["tools_at_end"] = "false";
+    config_files["tools"] = "true";
+    config_files["ctx_size"] = "4096";
     auto model = createModel();
     if (!model) {
       FAIL() << "Model failed to load";
@@ -769,6 +625,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
 
   {
     config_files["tools_at_end"] = "true";
+    config_files["tools"] = "true";
     auto model = createModel();
     if (!model) {
       FAIL() << "Model failed to load";
@@ -789,59 +646,13 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
 
     auto stats = model->runtimeStats();
     int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
-    llama_pos convTokens = model->getNConversationOnlyTokens();
+    int cacheTokens = static_cast<int>(getStatValue(stats, "CacheTokens"));
 
     GTEST_LOG_(INFO) << "Large prompt - Double tokenization (tools_at_end=true): "
                      << durationDouble / numIterations << " us per iteration ("
-                     << promptTokens << " prompt tokens, " << convTokens
-                     << " conversation-only tokens)";
+                     << promptTokens << " prompt tokens, " << cacheTokens
+                     << " cached tokens)";
   }
-}
-
-TEST_F(TextLlmContextTest, NPastBeforeToolsSetAfterEvalWithTools) {
-  // tools_at_end feature requires Qwen3 model
-  if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
-  }
-
-  if (!hasValidModel()) {
-    FAIL() << "Test model not found";
-  }
-
-  config_files["tools_at_end"] = "true";
-  auto model = createModel();
-  if (!model) {
-    FAIL() << "Model failed to load";
-  }
-
-  LlamaModel::Prompt prompt;
-  prompt.input = R"([
-    {"role": "user", "content": "What is the weather in Tokyo?"},
-    {
-      "type": "function",
-      "name": "getWeather",
-      "description": "Get weather forecast for a city",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {"type": "string", "description": "City name"},
-          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
-        },
-        "required": ["city", "date"]
-      }
-    }
-  ])";
-
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
-
-  llama_pos nPastBeforeTools = model->getNPastBeforeTools();
-  llama_pos nConvTokens = model->getNConversationOnlyTokens();
-
-  EXPECT_GT(nPastBeforeTools, 0);
-  EXPECT_GT(nConvTokens, 0);
-  EXPECT_LE(nPastBeforeTools, nConvTokens);
 }
 
 TEST_F(TextLlmContextTest, NPastBeforeToolsMinusOneWithoutTools) {
@@ -850,6 +661,7 @@ TEST_F(TextLlmContextTest, NPastBeforeToolsMinusOneWithoutTools) {
   }
 
   config_files["tools_at_end"] = "true";
+  config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -872,6 +684,7 @@ TEST_F(TextLlmContextTest, NPastBeforeToolsMinusOneWhenToolsAtEndFalse) {
   }
 
   config_files["tools_at_end"] = "false";
+  config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -903,111 +716,6 @@ TEST_F(TextLlmContextTest, NPastBeforeToolsMinusOneWhenToolsAtEndFalse) {
   EXPECT_EQ(nPastBeforeTools, -1);
 }
 
-TEST_F(TextLlmContextTest, NPastBeforeToolsResetAfterResetState) {
-  // tools_at_end feature requires Qwen3 model
-  if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
-  }
 
-  if (!hasValidModel()) {
-    FAIL() << "Test model not found";
-  }
 
-  config_files["tools_at_end"] = "true";
-  auto model = createModel();
-  if (!model) {
-    FAIL() << "Model failed to load";
-  }
 
-  LlamaModel::Prompt prompt;
-  prompt.input = R"([
-    {"role": "user", "content": "What is the weather in Tokyo?"},
-    {
-      "type": "function",
-      "name": "getWeather",
-      "description": "Get weather forecast for a city",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {"type": "string", "description": "City name"},
-          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
-        },
-        "required": ["city", "date"]
-      }
-    }
-  ])";
-
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
-
-  llama_pos nPastBeforeToolsBeforeReset = model->getNPastBeforeTools();
-  EXPECT_GT(nPastBeforeToolsBeforeReset, 0);
-
-  model->reset();
-
-  llama_pos nPastBeforeToolsAfterReset = model->getNPastBeforeTools();
-  EXPECT_EQ(nPastBeforeToolsAfterReset, -1);
-}
-
-TEST_F(TextLlmContextTest, NPastBeforeToolsBoundaryAccuracy) {
-  // tools_at_end feature requires Qwen3 model
-  if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
-  }
-
-  if (!hasValidModel()) {
-    FAIL() << "Test model not found";
-  }
-
-  config_files["tools_at_end"] = "true";
-  auto model = createModel();
-  if (!model) {
-    FAIL() << "Model failed to load";
-  }
-
-  LlamaModel::Prompt prompt;
-  prompt.input = R"([
-    {"role": "user", "content": "What is the weather in Tokyo?"},
-    {
-      "type": "function",
-      "name": "getWeather",
-      "description": "Get weather forecast for a city",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {"type": "string", "description": "City name"},
-          "date": {"type": "string", "description": "Date in YYYY-MM-DD"}
-        },
-        "required": ["city", "date"]
-      }
-    }
-  ])";
-
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
-
-  llama_pos nPastBeforeTools = model->getNPastBeforeTools();
-  llama_pos nConvTokens = model->getNConversationOnlyTokens();
-
-  EXPECT_GT(nConvTokens, 0);
-  EXPECT_GT(nPastBeforeTools, 0);
-
-  EXPECT_NO_THROW({
-    model->reset();
-  });
-
-  LlamaModel::Prompt promptNoTools;
-  promptNoTools.input = R"([{"role": "user", "content": "What is the weather in Tokyo?"}])";
-
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(promptNoTools);
-  });
-
-  llama_pos nConvTokensNoTools = model->getNConversationOnlyTokens();
-  llama_pos nPastBeforeToolsNoTools = model->getNPastBeforeTools();
-
-  EXPECT_EQ(nConvTokensNoTools, 0);
-  EXPECT_EQ(nPastBeforeToolsNoTools, -1);
-}

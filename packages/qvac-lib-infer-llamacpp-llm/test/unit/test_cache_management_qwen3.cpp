@@ -273,7 +273,6 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
   auto stats1 = model->runtimeStats();
   double cacheTokens1 = getStatValue(stats1, "CacheTokens");
   double promptTokens1 = getStatValue(stats1, "promptTokens");
-  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens1=%f promptTokens1=%f\n", cacheTokens1, promptTokens1);
   EXPECT_GT(cacheTokens1, 0.0);
   EXPECT_GT(promptTokens1, 500.0);
 
@@ -294,7 +293,6 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
   auto stats2 = model->runtimeStats();
   double cacheTokens2 = getStatValue(stats2, "CacheTokens");
   double promptTokens2 = getStatValue(stats2, "promptTokens");
-  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens2=%f, promptTokens2=%f\n", cacheTokens2, promptTokens2);
   EXPECT_GT(cacheTokens2, cacheTokens1);
   EXPECT_LT(promptTokens2, 500.0);
   EXPECT_LE(cacheTokens2, maxExpectedCacheTokens)
@@ -328,7 +326,6 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
   auto stats3 = model2->runtimeStats();
   double cacheTokens3 = getStatValue(stats3, "CacheTokens");
   double promptTokens3 = getStatValue(stats3, "promptTokens");
-  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens3=%f, promptTokens3=%f\n", cacheTokens3, promptTokens3);
 
   EXPECT_GT(cacheTokens3, cacheTokens2);
   EXPECT_LT(promptTokens3, 100.0);
@@ -347,7 +344,6 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
 
   auto stats4 = model3->runtimeStats();
   double cacheTokens4 = getStatValue(stats4, "CacheTokens");
-  printf("CacheManagementQwen3Test::CacheToolsAtEndModeWithMultiplePrompts cacheTokens4=%f\n", cacheTokens4);
   EXPECT_EQ(cacheTokens4, cacheTokens2);
 }
 
