@@ -15,10 +15,9 @@ using namespace qvac_lib_inference_addon_llama::logging;
 
 CacheManager::CacheManager(
     LlmContext* llmContext, llama_pos configuredNDiscarded,
-    std::function<void(bool)> resetStateCallback, bool toolsAtEnd)
+    std::function<void(bool)> resetStateCallback)
     : llmContext_(llmContext), configuredNDiscarded_(configuredNDiscarded),
-      resetStateCallback_(std::move(resetStateCallback)),
-      toolsAtEnd_(toolsAtEnd) {}
+      resetStateCallback_(std::move(resetStateCallback)) {}
 
 bool CacheManager::isFileInitialized(const std::filesystem::path& path) {
   std::error_code errorCode;
@@ -64,8 +63,6 @@ bool CacheManager::handleCache(
   bool cacheLoaded = false;
   bool cachePathSetInThisArray = false;
 
-  printf("CacheManager::handleCache role=%s cmd=%s\n", chatMsgs[0].role.c_str(), chatMsgs[0].content.c_str());
-
   while (!chatMsgs.empty() && chatMsgs[0].role == "session") {
     std::string sessionCommand = chatMsgs[0].content;
     chatMsgs.erase(chatMsgs.begin());
@@ -82,8 +79,6 @@ bool CacheManager::handleCache(
       resetStateCallback_(true);
       cacheUsedInLastPrompt_ = false;
     } else if (sessionCommand == "save") {
-      printf("CacheManager::handleCache SAVE noPath=%d\n", cachePathSetInThisArray);
-      // if (sessionPath_.empty()) {
       if (!cachePathSetInThisArray) {
         std::string errorMsg = string_format(
             "%s: save command requires explicit cache file specification in "
@@ -118,7 +113,6 @@ bool CacheManager::handleCache(
                 "inference\n",
                 __func__,
                 sessionPath_.c_str()));
-        printf("CacheManager::handleCache set cache path and continue=\n");
         cachePathSetInThisArray = true;
         cacheUsedInLastPrompt_ = true;
         continue;
@@ -143,7 +137,6 @@ bool CacheManager::handleCache(
 
       sessionPath_ = sessionCommand;
       cachePathSetInThisArray = true;
-      printf("CacheManager::handleCache set sessionPath_ and cachePathSetInThisArray\n");
 
       if (!sessionPath_.empty()) {
         cacheDisabled_ = false;
@@ -155,7 +148,6 @@ bool CacheManager::handleCache(
                 __func__,
                 sessionPath_.c_str()));
 
-        printf("CacheManager::handleCache loadCache, usedInLastPrompt\n");
         cacheLoaded = loadCache();
         cacheUsedInLastPrompt_ = true;
       } else {
@@ -171,14 +163,13 @@ bool CacheManager::handleCache(
 }
 
 bool CacheManager::loadCache() {
-  printf("CacheManager::loadCache toolsAtEnd_=%d\n", toolsAtEnd_);
   if (cacheDisabled_ || sessionPath_.empty()) {
     return false;
   }
 
   auto* ctx = llmContext_->getCtx();
   size_t nTokenCount = 0;
-  llama_token sessionTokens[3] = {0, 0, 0};
+  llama_token sessionTokens[2] = {0, 0};
 
   QLOG_IF(
       Priority::DEBUG,
@@ -195,7 +186,7 @@ bool CacheManager::loadCache() {
   }
 
   if (!llama_state_load_file(
-          ctx, sessionPath_.c_str(), sessionTokens, 3, &nTokenCount)) {
+          ctx, sessionPath_.c_str(), sessionTokens, 2, &nTokenCount)) {
     std::string errorMsg = string_format(
         "%s: failed to load session file '%s'\n",
         __func__,
@@ -220,7 +211,6 @@ bool CacheManager::loadCache() {
     }
     llmContext_->setNPast(sessionTokens[0]);
     llmContext_->setFirstMsgTokens(sessionTokens[1]);
-    llmContext_->setNPastBeforeTools(sessionTokens[2]);
 
     if (configuredNDiscarded_ >
         llama_n_ctx(ctx) - llmContext_->getFirstMsgTokens()) {
@@ -238,7 +228,6 @@ bool CacheManager::loadCache() {
 }
 
 void CacheManager::saveCache() {
-  printf("CacheManager::saveCache toolsAtEnd_=%d\n", toolsAtEnd_);
   if (cacheDisabled_ || sessionPath_.empty()) {
     std::string errorMsg = string_format(
         "%s: Cannot save cache - caching disabled or no session path set\n",
@@ -255,28 +244,10 @@ void CacheManager::saveCache() {
           __func__,
           sessionPath_.c_str()));
 
-  if (toolsAtEnd_) {
-    llama_pos trimPoint = llmContext_->getNPastBeforeTools();
-    printf("CacheManager::saveCache trimPoint=%d nPast_=%d\n", trimPoint, llmContext_->getNPast());
-    if (trimPoint > 0 && trimPoint < llmContext_->getNPast()) {
-      auto* mem = llama_get_memory(ctx);
-      llama_memory_seq_rm(mem, -1, trimPoint, -1);
-      llmContext_->setNPast(trimPoint);
-      QLOG_IF(
-          Priority::DEBUG,
-          string_format(
-              "%s: trimmed %d tool+response tokens before saving (tools-at-end "
-              "mode)\n",
-              __func__,
-              llmContext_->getNPast() - trimPoint));
-    }
-  }
-
-  llama_token sessionTokens[3] = {
+  llama_token sessionTokens[2] = {
       static_cast<llama_token>(llmContext_->getNPast()),
-      static_cast<llama_token>(llmContext_->getFirstMsgTokens()),
-      static_cast<llama_token>(llmContext_->getNPastBeforeTools())};
-  llama_state_save_file(ctx, sessionPath_.c_str(), sessionTokens, 3);
+      static_cast<llama_token>(llmContext_->getFirstMsgTokens())};
+  llama_state_save_file(ctx, sessionPath_.c_str(), sessionTokens, 2);
 }
 
 bool CacheManager::isCacheDisabled() const { return cacheDisabled_; }

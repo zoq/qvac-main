@@ -14,7 +14,7 @@ class CacheManager {
 public:
   CacheManager(
       LlmContext* llmContext, llama_pos configuredNDiscarded,
-      std::function<void(bool)> resetStateCallback, bool toolsAtEnd);
+      std::function<void(bool)> resetStateCallback);
 
   bool handleCache(
       std::vector<common_chat_msg>& chatMsgs,
@@ -39,5 +39,4 @@ private:
   std::string sessionPath_;
   bool cacheDisabled_ = true;
   bool cacheUsedInLastPrompt_ = false;
-  bool toolsAtEnd_ = false;
 };

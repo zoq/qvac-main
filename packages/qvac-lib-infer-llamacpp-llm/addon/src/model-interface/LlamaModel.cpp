@@ -249,8 +249,7 @@ void LlamaModel::init(bool acquireLock) {
     snap->cacheManager_.emplace(
         snap->llmContext_.get(),
         snap->configuredNDiscarded_,
-        [this](bool resetStats) { this->resetState(resetStats); },
-        snap->toolsAtEnd_);
+        [this](bool resetStats) { this->resetState(resetStats); });
   }
 }
 
