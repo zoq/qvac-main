@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.3] - 2026-03-16
+
+### Dynamic tool management feature
+
+#### `tools_at_end` configuration for dynamic tool management in multi-turn conversations
+
+New `tools_at_end` configuration option (`"true"` or `"false"`, default: `"false"`) places tool definitions at the end of the prompt (after conversation history) instead of in the system prompt. This enables KV cache optimization for multi-turn conversations with dynamic tool sets, where tools change between turns. Currently supports Qwen3 models only.
+
+- **KV cache trimming**: After each turn, tools are automatically removed from the KV cache, preventing stale tool definitions from accumulating
+- **Conversation history reuse**: History tokens are preserved in cache, saving recomputation on long conversations
+- **Dynamic tool replacement**: Different tool sets can be used per turn without cache bloat from unused tools
+
+
 ## [0.12.2] - 2026-03-13
 
 This release fixes antiprompt (reverse-prompt) detection for short stop sequences like `\n`, which is critical for translation workloads that rely on newline-based early stopping.
