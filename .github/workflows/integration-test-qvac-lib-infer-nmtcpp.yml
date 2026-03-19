@@ -228,6 +228,15 @@ jobs:
         env:
           QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
 
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-report-nmtcpp-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.run_number }}
+          path: ${{ inputs.workdir || env.PKG_DIR }}/test/results/performance-report.json
+          retention-days: 90
+          if-no-files-found: ignore
+
       - name: Run quickstart example with deps installed
         working-directory: ${{ inputs.workdir || env.PKG_DIR }}
         shell: bash

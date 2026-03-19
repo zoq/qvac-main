@@ -260,3 +260,12 @@ jobs:
         shell: powershell
         env:
           QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-report-llamacpp-llm-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.run_number }}
+          path: ${{ env.WORKDIR }}/test/results/performance-report.json
+          retention-days: 90
+          if-no-files-found: ignore

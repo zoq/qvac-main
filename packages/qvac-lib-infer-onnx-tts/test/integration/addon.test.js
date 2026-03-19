@@ -3,14 +3,41 @@
 const test = require('brittle')
 const os = require('bare-os')
 const path = require('bare-path')
+const process = require('bare-process')
 const { loadChatterboxTTS, runChatterboxTTS } = require('../utils/runChatterboxTTS')
 const { loadSupertonicTTS, runSupertonicTTS } = require('../utils/runSupertonicTTS')
 const { ensureChatterboxModels, ensureSupertonicModels, ensureWhisperModel } = require('../utils/downloadModel')
 const { loadWhisper, runWhisper } = require('../utils/runWhisper')
+const { createPerformanceReporter } = require('../../../../scripts/test-utils/performance-reporter')
 
 const platform = os.platform()
 const isMobile = platform === 'ios' || platform === 'android'
 const isDarwin = platform === 'darwin'
+
+const _perfReporter = createPerformanceReporter({
+  addon: 'onnx-tts',
+  addonType: 'tts'
+})
+
+const _reportPath = path.resolve('.', 'test/results/performance-report.json')
+
+function _recordTTSMetrics (label, stats, data) {
+  if (!stats) return
+  _perfReporter.record(label, {
+    total_time_ms: stats.totalTime ? Math.round(stats.totalTime * 1000) : null,
+    tps: stats.tokensPerSecond || null,
+    real_time_factor: stats.realTimeFactor || null,
+    sample_count: data.sampleCount || null,
+    duration_ms: data.durationMs ? Math.round(data.durationMs) : null
+  })
+}
+
+process.on('exit', () => {
+  if (_perfReporter.length > 0) {
+    _perfReporter.writeReport(_reportPath)
+    _perfReporter.writeStepSummary()
+  }
+})
 
 const CHATTERBOX_VARIANT = os.getEnv('CHATTERBOX_VARIANT') || 'fp32'
 const VARIANT_SUFFIX = CHATTERBOX_VARIANT === 'fp32' ? '' : `_${CHATTERBOX_VARIANT}`
@@ -82,6 +109,7 @@ test('Chatterbox TTS: Basic synthesis test', { timeout: 1800000 }, async (t) => 
   if (result.data?.stats) {
     console.log(`Inference stats: ${JSON.stringify(result.data.stats)}`)
   }
+  _recordTTSMetrics('Chatterbox Basic', result.data.stats, result.data)
 
   // Unload model
   console.log('\n=== Unloading Chatterbox TTS model ===')
@@ -157,6 +185,8 @@ test('Chatterbox TTS: Multiple sentences synthesis with WER verification', { tim
 
     t.ok(result.passed, `Chatterbox TTS synthesis ${i + 1} should pass expectations`)
     t.ok(result.data.sampleCount > 0, `Chatterbox TTS synthesis ${i + 1} should produce samples`)
+
+    _recordTTSMetrics(`Chatterbox Multi #${i + 1}`, result.data.stats, result.data)
 
     const wavBuffer = result.data?.wavBuffer ? Buffer.from(result.data.wavBuffer) : null
     results.push({
@@ -531,6 +561,7 @@ test('Supertonic TTS: Basic synthesis test', { timeout: 1800000 }, async (t) => 
   if (result.data?.stats) {
     console.log(`Inference stats: ${JSON.stringify(result.data.stats)}`)
   }
+  _recordTTSMetrics('Supertonic Basic', result.data.stats, result.data)
 
   console.log('\n=== Unloading Supertonic TTS model ===')
   await model.unload()
@@ -591,6 +622,7 @@ test('Supertonic TTS: Multiple sentences synthesis', { timeout: 1800000 }, async
 
     t.ok(result.passed, `Supertonic TTS synthesis ${i + 1} should pass expectations`)
     t.ok(result.data.sampleCount > 0, `Supertonic TTS synthesis ${i + 1} should produce samples`)
+    _recordTTSMetrics(`Supertonic Multi #${i + 1}`, result.data.stats, result.data)
 
     results.push({
       text,

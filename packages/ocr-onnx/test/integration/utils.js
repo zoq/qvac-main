@@ -3,10 +3,33 @@
 const fs = require('bare-fs')
 const path = require('bare-path')
 const os = require('bare-os')
+const process = require('bare-process')
+const { createPerformanceReporter } = require('../../../../scripts/test-utils/performance-reporter')
+const { evaluateQuality, findGroundTruth } = require('../../../../scripts/test-utils/quality-metrics')
 
 const platform = os.platform()
 const isMobile = platform === 'ios' || platform === 'android'
 const isWindows = platform === 'win32'
+
+// Singleton performance reporter — collects metrics across all OCR integration tests
+const _perfReporter = createPerformanceReporter({
+  addon: 'ocr-onnx',
+  addonType: 'ocr'
+})
+
+const _reportPath = path.resolve('.', 'test/results/performance-report.json')
+let _reportScheduled = false
+
+function _scheduleReportWrite () {
+  if (_reportScheduled) return
+  _reportScheduled = true
+  process.on('exit', () => {
+    if (_perfReporter.length > 0) {
+      _perfReporter.writeReport(_reportPath)
+      _perfReporter.writeStepSummary()
+    }
+  })
+}
 
 // Windows CI runners have limited memory (~7GB): use BASIC optimization,
 // XNNPACK for efficient Conv/Relu ops, disable BFC arena pre-allocation,
@@ -275,19 +298,75 @@ async function ensureModelPath (modelName) {
  * @param {Array} outputTexts - Array of detected texts
  * @returns {string} Formatted performance metrics string
  */
-function formatOCRPerformanceMetrics (label, stats, outputTexts = []) {
+/**
+ * Formats OCR performance metrics for test output.
+ *
+ * @param {string} label - Test label prefix (e.g., '[OCR] [GPU]')
+ * @param {Object} stats - Stats object from response.stats
+ * @param {Array} outputTexts - Array of detected texts
+ * @param {Object} [opts] - Optional settings
+ * @param {string} [opts.imagePath] - Path to the source image (triggers quality evaluation)
+ * @param {Object} [opts.groundTruth] - Explicit ground truth (overrides auto-discovery)
+ * @returns {string} Formatted performance metrics string
+ */
+function formatOCRPerformanceMetrics (label, stats, outputTexts = [], opts) {
   const totalTimeMs = stats.totalTime ? stats.totalTime * 1000 : 0
   const detectionTimeMs = stats.detectionTime ? stats.detectionTime * 1000 : 0
   const recognitionTimeMs = stats.recognitionTime ? stats.recognitionTime * 1000 : 0
   const textRegionsCount = stats.textRegionsCount || 0
   const totalSeconds = (totalTimeMs / 1000).toFixed(2)
 
-  return `${label} Performance Metrics:
+  const ep = /\[gpu\]/i.test(label) ? 'gpu' : /\[cpu\]/i.test(label) ? 'cpu' : null
+
+  let quality = null
+  const gt = (opts && opts.groundTruth) || (opts && opts.imagePath ? findGroundTruth(opts.imagePath) : null)
+  if (gt && outputTexts.length > 0) {
+    try {
+      quality = evaluateQuality(outputTexts, gt)
+    } catch (err) {
+      console.log(`[quality] evaluation failed: ${err.message}`)
+    }
+  }
+
+  _perfReporter.record(label, {
+    total_time_ms: Math.round(totalTimeMs),
+    detection_time_ms: Math.round(detectionTimeMs),
+    recognition_time_ms: Math.round(recognitionTimeMs),
+    text_regions: textRegionsCount
+  }, {
+    execution_provider: ep,
+    output: JSON.stringify(outputTexts),
+    quality
+  })
+  _scheduleReportWrite()
+
+  let out = `${label} Performance Metrics:
     - Total time: ${totalTimeMs.toFixed(0)}ms (${totalSeconds}s)
     - Detection time: ${detectionTimeMs.toFixed(0)}ms
     - Recognition time: ${recognitionTimeMs.toFixed(0)}ms
     - Text regions detected: ${textRegionsCount}
     - Detected texts: ${JSON.stringify(outputTexts)}`
+
+  if (quality) {
+    out += `\n    --- Quality ---`
+    if (quality.cer !== undefined) out += `\n    - CER: ${(quality.cer * 100).toFixed(1)}%`
+    if (quality.wer !== undefined) out += `\n    - WER: ${(quality.wer * 100).toFixed(1)}%`
+    if (quality.keyword_detection_rate !== undefined) {
+      out += `\n    - Keywords: ${quality.keywords_found}/${quality.keywords_total} (${(quality.keyword_detection_rate * 100).toFixed(1)}%)`
+    }
+    if (quality.key_value_accuracy !== undefined) {
+      out += `\n    - KV Accuracy: ${quality.key_values_matched}/${quality.key_values_total} (${(quality.key_value_accuracy * 100).toFixed(1)}%)`
+    }
+    if (quality.keywords_missing && quality.keywords_missing.length > 0) {
+      out += `\n    - Missing keywords: ${JSON.stringify(quality.keywords_missing)}`
+    }
+    if (quality.key_values_unmatched && quality.key_values_unmatched.length > 0) {
+      const unmatchedKeys = quality.key_values_unmatched.map(u => u.key)
+      out += `\n    - Unmatched KV keys: ${JSON.stringify(unmatchedKeys)}`
+    }
+  }
+
+  return out
 }
 
 /**

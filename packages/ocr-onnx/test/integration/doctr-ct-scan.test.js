@@ -8,7 +8,7 @@ const DOCTR_TEST_TIMEOUT = 180 * 1000
 let DB_MOBILENET
 let CRNN_MOBILENET
 
-test('DocTR lab results - download models', { timeout: DOCTR_TEST_TIMEOUT }, async function (t) {
+test('DocTR CT scan - download models', { timeout: DOCTR_TEST_TIMEOUT }, async function (t) {
   const models = await ensureDoctrModels(['db_mobilenet_v3_large.onnx', 'crnn_mobilenet_v3_small.onnx'])
   DB_MOBILENET = models.db_mobilenet_v3_large
   CRNN_MOBILENET = models.crnn_mobilenet_v3_small
@@ -16,10 +16,10 @@ test('DocTR lab results - download models', { timeout: DOCTR_TEST_TIMEOUT }, asy
   t.ok(CRNN_MOBILENET, 'crnn_mobilenet model available')
 })
 
-test('DocTR lab results - db_mobilenet + crnn_mobilenet with straightenPages', { timeout: DOCTR_TEST_TIMEOUT }, async function (t) {
-  const imagePath = getImagePath('/test/images/lab_results.png')
+test('DocTR CT scan - db_mobilenet + crnn_mobilenet with straightenPages', { timeout: DOCTR_TEST_TIMEOUT }, async function (t) {
+  const imagePath = getImagePath('/test/images/ct_scan_report.png')
 
-  t.comment('Testing DocTR on medical lab results image')
+  t.comment('Testing DocTR on CT scan diagnostic report image')
   t.comment('Detector: db_mobilenet_v3_large, Recognizer: crnn_mobilenet_v3_small (CTC)')
   t.comment('straightenPages: true')
 
@@ -32,27 +32,23 @@ test('DocTR lab results - db_mobilenet + crnn_mobilenet with straightenPages', {
 
   const texts = results.map(r => r.text)
   t.comment('Detected texts: ' + JSON.stringify(texts))
-  t.comment('Full output: ' + JSON.stringify(results.map(r => ({
-    text: r.text,
-    confidence: r.confidence.toFixed(3)
-  })), null, 2))
-  t.comment(formatOCRPerformanceMetrics('[DocTR lab_results]', stats, texts, { imagePath }))
+  t.comment(formatOCRPerformanceMetrics('[DocTR ct_scan_report]', stats, texts, { imagePath }))
 
   t.ok(results.length > 0, `should detect text regions, got ${results.length}`)
 
-  // Verify some expected words from the lab results document
   const lowerTexts = texts.map(w => w.toLowerCase())
-  t.comment('Lowercase texts: ' + JSON.stringify(lowerTexts))
 
   const expectedWords = [
-    'parameter', 'results', 'calculated', 'direct', 'values', 'clinical', 'blood', 'patient'
+    'diagnostic', 'imaging', 'computed', 'tomography',
+    'chest', 'abdomen', 'lung', 'liver', 'pancreas',
+    'gallbladder', 'spleen', 'radiologist'
   ]
   for (const word of expectedWords) {
     t.ok(
       lowerTexts.some(w => w.includes(word)),
-      `should detect "${word}" in lab results`
+      `should detect "${word}" in CT scan report`
     )
   }
 
-  t.pass('DocTR lab results test completed successfully')
+  t.pass('DocTR CT scan report test completed successfully')
 })
