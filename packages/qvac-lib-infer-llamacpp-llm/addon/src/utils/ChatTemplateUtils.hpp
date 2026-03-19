@@ -22,8 +22,7 @@ bool isQwen3Model(const ::llama_model* model);
  * For other models, returns the manual override or empty string.
  */
 std::string getChatTemplateForModel(
-    const ::llama_model* model,
-    const std::string& manualOverride,
+    const ::llama_model* model, const std::string& manualOverride,
     bool toolsAtEnd);
 
 /**
@@ -31,9 +30,7 @@ std::string getChatTemplateForModel(
  * enabled
  */
 std::string getChatTemplate(
-    const ::llama_model* model,
-    const common_params& params,
-    bool toolsAtEnd);
+    const ::llama_model* model, const common_params& params, bool toolsAtEnd);
 
 /**
  * @brief Applies chat templates to generate a prompt, with fallback handling

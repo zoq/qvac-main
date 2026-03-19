@@ -140,7 +140,6 @@ protected:
   std::string session1_path;
   std::string session2_path;
   std::string temp_session_path;
-
 };
 
 TEST_F(CacheManagementTest, InitialStateNoCache) {
@@ -1069,4 +1068,3 @@ TEST_F(CacheManagementTest, CacheWithToolsAtEndFalseSavesFullCache) {
 
   EXPECT_TRUE(fs::exists(session1_path));
 }
-

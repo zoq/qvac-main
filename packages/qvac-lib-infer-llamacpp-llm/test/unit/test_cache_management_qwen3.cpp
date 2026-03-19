@@ -47,7 +47,9 @@ std::string processPromptString(
 bool isQwen3ModelPath(const std::string& path) {
   std::string lowerPath = path;
   std::transform(
-      lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
+      lowerPath.begin(),
+      lowerPath.end(),
+      lowerPath.begin(),
       [](unsigned char c) { return std::tolower(c); });
   return lowerPath.find("qwen3") != std::string::npos;
 }
@@ -62,7 +64,8 @@ protected:
     config_files["n_predict"] = "10";
     config_files["tools"] = "true";
 
-    test_model_path = test_common::BaseTestModelPath::get("Qwen3-1.7B-Q4_0.gguf", "Llama-3.2-1B-Instruct-Q4_0.gguf");
+    test_model_path = test_common::BaseTestModelPath::get(
+        "Qwen3-1.7B-Q4_0.gguf", "Llama-3.2-1B-Instruct-Q4_0.gguf");
     test_projection_path = "";
 
     config_files["backendsDir"] = test_common::getTestBackendsDir().string();
@@ -347,7 +350,9 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
   EXPECT_EQ(cacheTokens4, cacheTokens2);
 }
 
-TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeTrimOnlyWhenNPastBeforeToolsPositive) {
+TEST_F(
+    CacheManagementQwen3Test,
+    CacheToolsAtEndModeTrimOnlyWhenNPastBeforeToolsPositive) {
   if (!isQwen3ModelPath(test_model_path)) {
     GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
   }

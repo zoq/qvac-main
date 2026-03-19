@@ -21,7 +21,8 @@ using namespace qvac_lib_inference_addon_llama::utils;
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 MtmdLlmContext::MtmdLlmContext(
-    common_params& commonParams, common_init_result&& llamaInit, bool toolsAtEnd)
+    common_params& commonParams, common_init_result&& llamaInit,
+    bool toolsAtEnd)
     : llamaInit_(std::move(llamaInit)), params_(commonParams),
       model_(llamaInit_.model.get()), lctx_(llamaInit_.context.get()) {
   dynamicToolsState().setToolsAtEnd(toolsAtEnd);
@@ -42,7 +43,8 @@ MtmdLlmContext::MtmdLlmContext(
 
   vocab_ = llama_model_get_vocab(model_);
 
-  std::string chatTemplate = getChatTemplate(model_, params_, dynamicToolsState().toolsAtEnd());
+  std::string chatTemplate =
+      getChatTemplate(model_, params_, dynamicToolsState().toolsAtEnd());
   tmpls_ = common_chat_templates_init(model_, chatTemplate);
 
   smpl_.reset(common_sampler_init(model_, params_.sampling));
@@ -226,9 +228,11 @@ void MtmdLlmContext::tokenizeChat(
       if (resNoTools == 0) {
         dynamicToolsState().setConversationOnlyTokens(
             mtmd_helper_get_n_tokens(chunksNoTools.ptr.get()));
-        assert(dynamicToolsState().conversationOnlyTokens() <=
-                   static_cast<llama_pos>(mtmd_helper_get_n_tokens(chunks.ptr.get())) &&
-               "conversation-only tokens exceeds total tokens");
+        assert(
+            dynamicToolsState().conversationOnlyTokens() <=
+                static_cast<llama_pos>(
+                    mtmd_helper_get_n_tokens(chunks.ptr.get())) &&
+            "conversation-only tokens exceeds total tokens");
       }
     }
   } else {
@@ -351,7 +355,8 @@ bool MtmdLlmContext::evalMessageWithTools(
       nDiscarded_ = ctxSize - firstMsgTokens_ - 1;
     }
   }
-  dynamicToolsState().recordToolBoundary(nPast_, static_cast<llama_pos>(nTokens));
+  dynamicToolsState().recordToolBoundary(
+      nPast_, static_cast<llama_pos>(nTokens));
   return true;
 }
 

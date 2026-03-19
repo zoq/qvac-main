@@ -42,7 +42,9 @@ double getStatValue(
 bool isQwen3ModelPath(const std::string& path) {
   std::string lowerPath = path;
   std::transform(
-      lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
+      lowerPath.begin(),
+      lowerPath.end(),
+      lowerPath.begin(),
       [](unsigned char c) { return std::tolower(c); });
   return lowerPath.find("qwen3") != std::string::npos;
 }
@@ -123,9 +125,7 @@ TEST_F(TextLlmContextQwen3Test, DoubleTokenizeWithToolsAtEnd) {
     }
   ])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
+  EXPECT_NO_THROW({ std::string output = model->processPrompt(prompt); });
 
   auto stats = model->runtimeStats();
   int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
@@ -180,9 +180,7 @@ TEST_F(TextLlmContextQwen3Test, DoubleTokenizeWithMultipleTools) {
     }
   ])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
+  EXPECT_NO_THROW({ std::string output = model->processPrompt(prompt); });
 
   auto stats = model->runtimeStats();
   int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
@@ -223,27 +221,26 @@ TEST_F(TextLlmContextQwen3Test, DoubleTokenizeBoundaryAccuracy) {
     }
   ])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(promptWithTools);
-  });
+  EXPECT_NO_THROW(
+      { std::string output = model->processPrompt(promptWithTools); });
 
   auto statsWithTools = model->runtimeStats();
-  int promptTokensWithTools = static_cast<int>(getStatValue(statsWithTools, "promptTokens"));
+  int promptTokensWithTools =
+      static_cast<int>(getStatValue(statsWithTools, "promptTokens"));
   EXPECT_GT(promptTokensWithTools, 150);
 
-  EXPECT_NO_THROW({
-    model->reset();
-  });
+  EXPECT_NO_THROW({ model->reset(); });
 
   LlamaModel::Prompt promptNoTools;
-  promptNoTools.input = R"([{"role": "user", "content": "What is the weather in Tokyo?"}])";
+  promptNoTools.input =
+      R"([{"role": "user", "content": "What is the weather in Tokyo?"}])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(promptNoTools);
-  });
+  EXPECT_NO_THROW(
+      { std::string output = model->processPrompt(promptNoTools); });
 
   auto statsNoTools = model->runtimeStats();
-  int promptTokensNoTools = static_cast<int>(getStatValue(statsNoTools, "promptTokens"));
+  int promptTokensNoTools =
+      static_cast<int>(getStatValue(statsNoTools, "promptTokens"));
 
   EXPECT_LT(promptTokensNoTools, 30);
 }
@@ -282,9 +279,7 @@ TEST_F(TextLlmContextQwen3Test, NPastBeforeToolsSetAfterEvalWithTools) {
     }
   ])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
+  EXPECT_NO_THROW({ std::string output = model->processPrompt(prompt); });
 
   llama_pos nPastBeforeTools = model->getNPastBeforeTools();
   auto stats = model->runtimeStats();
@@ -328,9 +323,7 @@ TEST_F(TextLlmContextQwen3Test, NPastBeforeToolsResetAfterResetState) {
     }
   ])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
+  EXPECT_NO_THROW({ std::string output = model->processPrompt(prompt); });
 
   llama_pos nPastBeforeToolsBeforeReset = model->getNPastBeforeTools();
   EXPECT_EQ(nPastBeforeToolsBeforeReset, -1);

@@ -84,29 +84,29 @@ public:
   const llama_batch* operator->() const noexcept { return &batch_; }
 };
 
-struct ThreadPoolDeleter{
-    void operator()(ggml_threadpool* ptr) {
-      if (ptr != nullptr) {
-        auto* cpuDev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU);
-        if (cpuDev == nullptr) {
-          throw qvac_errors::StatusError(
-              ADDON_ID, toString(NoBackendFound), "no CPU backend found");
-        }
-        auto* reg = ggml_backend_dev_backend_reg(cpuDev);
-        void* procAddr =
-            ggml_backend_reg_get_proc_address(reg, "ggml_threadpool_free");
-        if (procAddr == nullptr) {
-          throw qvac_errors::StatusError(
-              ADDON_ID,
-              toString(UnableToDeleteThreadPool),
-              "Failed to get ggml_threadpool_free function address");
-        }
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        auto* ggmlThreadpoolFreeFn =
-            reinterpret_cast<decltype(ggml_threadpool_free)*>(procAddr);
-        ggmlThreadpoolFreeFn(ptr);
+struct ThreadPoolDeleter {
+  void operator()(ggml_threadpool* ptr) {
+    if (ptr != nullptr) {
+      auto* cpuDev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU);
+      if (cpuDev == nullptr) {
+        throw qvac_errors::StatusError(
+            ADDON_ID, toString(NoBackendFound), "no CPU backend found");
       }
+      auto* reg = ggml_backend_dev_backend_reg(cpuDev);
+      void* procAddr =
+          ggml_backend_reg_get_proc_address(reg, "ggml_threadpool_free");
+      if (procAddr == nullptr) {
+        throw qvac_errors::StatusError(
+            ADDON_ID,
+            toString(UnableToDeleteThreadPool),
+            "Failed to get ggml_threadpool_free function address");
+      }
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+      auto* ggmlThreadpoolFreeFn =
+          reinterpret_cast<decltype(ggml_threadpool_free)*>(procAddr);
+      ggmlThreadpoolFreeFn(ptr);
     }
+  }
 };
 using ThreadPoolPtr = std::unique_ptr<ggml_threadpool, ThreadPoolDeleter>;
 
@@ -122,7 +122,9 @@ public:
     }
   }
   void setConversationOnlyTokens(llama_pos n) { nConversationOnlyTokens_ = n; }
-  [[nodiscard]] llama_pos conversationOnlyTokens() const { return nConversationOnlyTokens_; }
+  [[nodiscard]] llama_pos conversationOnlyTokens() const {
+    return nConversationOnlyTokens_;
+  }
   void reset() {
     nConversationOnlyTokens_ = 0;
     nPastBeforeTools_ = -1;
@@ -236,7 +238,9 @@ public:
   virtual void setNDiscarded(llama_pos nDiscarded) = 0;
 
   DynamicToolsState& dynamicToolsState() { return dynamicToolsState_; }
-  [[nodiscard]] const DynamicToolsState& dynamicToolsState() const { return dynamicToolsState_; }
+  [[nodiscard]] const DynamicToolsState& dynamicToolsState() const {
+    return dynamicToolsState_;
+  }
 
   /**
    * Get the number of context slides (discards) that have occurred.
@@ -307,5 +311,3 @@ public:
 private:
   DynamicToolsState dynamicToolsState_;
 };
-
-

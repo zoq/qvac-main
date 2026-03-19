@@ -373,8 +373,6 @@ TEST_F(TextLlmContextTest, ProcessWithMultipleTools) {
   });
 }
 
-
-
 TEST_F(TextLlmContextTest, DoubleTokenizeWithoutToolsAtEnd) {
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
@@ -405,9 +403,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizeWithoutToolsAtEnd) {
     }
   ])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
+  EXPECT_NO_THROW({ std::string output = model->processPrompt(prompt); });
 
   auto stats = model->runtimeStats();
   int cacheTokens = static_cast<int>(getStatValue(stats, "CacheTokens"));
@@ -432,19 +428,14 @@ TEST_F(TextLlmContextTest, DoubleTokenizeWithToolsAtEndNoTools) {
   LlamaModel::Prompt prompt;
   prompt.input = R"([{"role": "user", "content": "Hello, how are you?"}])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
+  EXPECT_NO_THROW({ std::string output = model->processPrompt(prompt); });
 
-  // Without tools, CacheTokens should equal promptTokens (no cached conversation tokens)
+  // Without tools, CacheTokens should equal promptTokens (no cached
+  // conversation tokens)
   auto stats = model->runtimeStats();
   int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
   EXPECT_LT(promptTokens, 50);
 }
-
-
-
-
 
 TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
   if (!hasValidModel()) {
@@ -539,7 +530,8 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
     }
 
     LlamaModel::Prompt promptNoTools;
-    promptNoTools.input = R"([{"role": "user", "content": "Hello, how are you?"}])";
+    promptNoTools.input =
+        R"([{"role": "user", "content": "Hello, how are you?"}])";
 
     auto startNoTools = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < numIterations; ++i) {
@@ -548,8 +540,8 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
     }
     auto endNoTools = std::chrono::high_resolution_clock::now();
     auto durationNoTools =
-        std::chrono::duration_cast<std::chrono::microseconds>(endNoTools -
-                                                              startNoTools)
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            endNoTools - startNoTools)
             .count();
 
     auto stats = model->runtimeStats();
@@ -575,7 +567,8 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
   }
 
   const std::string promptWithTools = R"([
-    {"role": "user", "content": ")" + longContent + R"("},
+    {"role": "user", "content": ")" + longContent +
+                                      R"("},
     {
       "type": "function",
       "name": "getWeather",
@@ -648,10 +641,11 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
     int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
     int cacheTokens = static_cast<int>(getStatValue(stats, "CacheTokens"));
 
-    GTEST_LOG_(INFO) << "Large prompt - Double tokenization (tools_at_end=true): "
-                     << durationDouble / numIterations << " us per iteration ("
-                     << promptTokens << " prompt tokens, " << cacheTokens
-                     << " cached tokens)";
+    GTEST_LOG_(INFO)
+        << "Large prompt - Double tokenization (tools_at_end=true): "
+        << durationDouble / numIterations << " us per iteration ("
+        << promptTokens << " prompt tokens, " << cacheTokens
+        << " cached tokens)";
   }
 }
 
@@ -670,9 +664,7 @@ TEST_F(TextLlmContextTest, NPastBeforeToolsMinusOneWithoutTools) {
   LlamaModel::Prompt prompt;
   prompt.input = R"([{"role": "user", "content": "Hello, how are you?"}])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
+  EXPECT_NO_THROW({ std::string output = model->processPrompt(prompt); });
 
   llama_pos nPastBeforeTools = model->getNPastBeforeTools();
   EXPECT_EQ(nPastBeforeTools, -1);
@@ -708,14 +700,8 @@ TEST_F(TextLlmContextTest, NPastBeforeToolsMinusOneWhenToolsAtEndFalse) {
     }
   ])";
 
-  EXPECT_NO_THROW({
-    std::string output = model->processPrompt(prompt);
-  });
+  EXPECT_NO_THROW({ std::string output = model->processPrompt(prompt); });
 
   llama_pos nPastBeforeTools = model->getNPastBeforeTools();
   EXPECT_EQ(nPastBeforeTools, -1);
 }
-
-
-
-

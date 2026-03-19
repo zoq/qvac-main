@@ -309,7 +309,8 @@ void LlamaModel::init(bool acquireLock) {
   common_params params;
   std::optional<int> adrenoVersion;
   bool toolsAtEnd = false;
-  commonParamsParse(modelPath, configFilemap, params, adrenoVersion, toolsAtEnd);
+  commonParamsParse(
+      modelPath, configFilemap, params, adrenoVersion, toolsAtEnd);
 
   const std::string errorWhenFailed = toString(UnableToLoadModel);
   auto streamedFiles =
@@ -514,7 +515,8 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
   std::string out;
   ResolvedPrompt resolved = resolveChatAndTools(prompt.input);
 
-  if (resolved.shouldResetAfterInference && state_->llmContext_->getNPast() > 0) {
+  if (resolved.shouldResetAfterInference &&
+      state_->llmContext_->getNPast() > 0) {
     resetState(true);
   }
 
@@ -573,7 +575,8 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
     state_->llmContext_->removeLastNTokens(
         state_->llmContext_->getNPast() - dts.nPastBeforeTools());
     dts.reset();
-    if (state_->llmContext_->getFirstMsgTokens() > state_->llmContext_->getNPast()) {
+    if (state_->llmContext_->getFirstMsgTokens() >
+        state_->llmContext_->getNPast()) {
       state_->llmContext_->setFirstMsgTokens(state_->llmContext_->getNPast());
     }
   }
@@ -1017,9 +1020,11 @@ std::unique_ptr<LlmContext> LlamaModel::createContext(
     common_init_result&& llamaInit, bool toolsAtEnd) {
   if (!projectionPath.empty()) {
     params.mmproj.path = std::move(projectionPath);
-    return std::make_unique<MtmdLlmContext>(params, std::move(llamaInit), toolsAtEnd);
+    return std::make_unique<MtmdLlmContext>(
+        params, std::move(llamaInit), toolsAtEnd);
   }
-  return std::make_unique<TextLlmContext>(params, std::move(llamaInit), toolsAtEnd);
+  return std::make_unique<TextLlmContext>(
+      params, std::move(llamaInit), toolsAtEnd);
 }
 
 bool LlamaModel::loadMedia(const std::vector<uint8_t>& input) {
@@ -1141,13 +1146,14 @@ std::string LlamaModel::finetune(
   // (e.g. flash-attn off, ubatch sizing) and gives a clean llama_context.
   // TODO: investigate recreating the context without a full weights reload
   // to reduce latency when the backend itself does not change.
-  reload(FinetuneConfigOverrides{
-      .active = true,
-      .batchSize = params.batchSize,
-      .microBatchSize = params.microBatchSize,
-      .contextLength = params.contextLength,
-      .gpuSupportsF16OutProd = gpuSupportsOutProdF16(),
-      .flashAttn = params.flashAttn});
+  reload(
+      FinetuneConfigOverrides{
+          .active = true,
+          .batchSize = params.batchSize,
+          .microBatchSize = params.microBatchSize,
+          .contextLength = params.contextLength,
+          .gpuSupportsF16OutProd = gpuSupportsOutProdF16(),
+          .flashAttn = params.flashAttn});
 
   llama_context* ctx = getContext();
   llama_model* mdl = getModel();

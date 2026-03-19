@@ -12,4 +12,3 @@ const char* getToolsDynamicQwen3Template();
 
 } // namespace utils
 } // namespace qvac_lib_inference_addon_llama
-
