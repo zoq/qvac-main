@@ -300,6 +300,8 @@ For the full API, dataset format, parameters, and examples, see the **[Finetunin
 -   [LoRA Finetuning](./examples/simple-lora-finetune.js) – Basic LoRA finetuning.
 -   [LoRA Finetuning Pause/Resume](./examples/simple-lora-finetune-pause-resume.js) – Pause and resume finetuning.
 -   [LoRA Inference](./examples/simple-lora-inference.js) – Inference with a finetuned LoRA adapter.
+-   [Bench Tools Placement](./examples/benchToolsPlacement.js) – Benchmarks standard vs `tools_at_end` placement across multi-turn conversations.
+-   [Test Tool Removal](./examples/testToolRemoval.js) – Demonstrates dynamic tool addition and removal between turns.
 
 ## OCR with Vision-Language Models
 
