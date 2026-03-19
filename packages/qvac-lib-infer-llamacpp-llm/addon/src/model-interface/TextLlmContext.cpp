@@ -192,9 +192,6 @@ void TextLlmContext::tokenizeChat(
 
   if (nPast_ == 0 && !isCacheLoaded) {
     dynamicToolsState().reset();
-  }
-
-  if (nPast_ == 0 && !isCacheLoaded) {
     isLastMessageFromUser = true;
     addSpecial = true;
   } else if (nPast_ > 0) {
@@ -220,15 +217,13 @@ void TextLlmContext::tokenizeChat(
     inputTokens = common_tokenize(lctx_, prompt, addSpecial, true);
 
     if (dynamicToolsState().toolsAtEnd() && !tools.empty()) {
-      auto savedTools = inputs.tools;
-      auto savedGenPrompt = inputs.add_generation_prompt;
+      auto savedUseJinja = inputs.use_jinja;
       inputs.tools = {};
       inputs.add_generation_prompt = false;
       auto promptNoTools = getPrompt(tmpls_.get(), inputs);
       auto tokensNoTools = common_tokenize(lctx_, promptNoTools, addSpecial, true);
 
-      inputs.tools = savedTools;
-      inputs.add_generation_prompt = savedGenPrompt;
+      inputs.use_jinja = savedUseJinja;
       dynamicToolsState().setConversationOnlyTokens(tokensNoTools.size());
       assert(dynamicToolsState().conversationOnlyTokens() <= static_cast<llama_pos>(inputTokens.size()) &&
              "conversation-only tokens exceeds total tokens");

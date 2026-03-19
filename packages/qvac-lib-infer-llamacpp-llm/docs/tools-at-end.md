@@ -13,6 +13,10 @@ const config = {
 }
 ```
 
+## Model Support
+
+Currently `tools_at_end` is only supported for **Qwen3** models. If enabled on a non-Qwen3 model, the flag is silently ignored and a warning is logged.
+
 ## Usage Requirements
 
 ### Multi-turn Conversation Pattern

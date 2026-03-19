@@ -1,6 +1,7 @@
 #include "MtmdLlmContext.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 #include <common/log.h>
 #include <llama/mtmd/mtmd-helper.h>
@@ -202,13 +203,11 @@ void MtmdLlmContext::tokenizeChat(
   }
 
   if (dynamicToolsState().toolsAtEnd() && !tools.empty()) {
-    auto savedTools = inputs.tools;
-    auto savedGenPrompt = inputs.add_generation_prompt;
+    auto savedUseJinja = inputs.use_jinja;
     inputs.tools = {};
     inputs.add_generation_prompt = false;
     auto promptNoTools = getPrompt(tmpls_.get(), inputs);
-    inputs.tools = savedTools;
-    inputs.add_generation_prompt = savedGenPrompt;
+    inputs.use_jinja = savedUseJinja;
 
     if (!promptNoTools.empty()) {
       mtmd_input_text textNoTools;
@@ -227,6 +226,9 @@ void MtmdLlmContext::tokenizeChat(
       if (resNoTools == 0) {
         dynamicToolsState().setConversationOnlyTokens(
             mtmd_helper_get_n_tokens(chunksNoTools.ptr.get()));
+        assert(dynamicToolsState().conversationOnlyTokens() <=
+                   static_cast<llama_pos>(mtmd_helper_get_n_tokens(chunks.ptr.get())) &&
+               "conversation-only tokens exceeds total tokens");
       }
     }
   } else {
