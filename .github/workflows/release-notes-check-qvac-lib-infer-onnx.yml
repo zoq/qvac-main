@@ -54,25 +54,28 @@ jobs:
           prev_sha: ${{ github.event.pull_request.base.sha }}
           workdir: packages/qvac-lib-infer-onnx
 
-      - name: Validate Release Notes on version bump
+      - name: Validate CHANGELOG on version bump
         if: steps.version.outputs.bumped == 'true'
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const pullNumber = context.payload.pull_request.number;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const version = "${{ steps.package-version.outputs.version }}";
-            const expected = `packages/qvac-lib-infer-onnx/release-notes/v${version}.md`;
+        run: |
+          set -euo pipefail
 
-            const files = await github.paginate(
-              github.rest.pulls.listFiles,
-              { owner, repo, pull_number: pullNumber, per_page: 100 }
-            );
+          VERSION="${{ steps.pr-package-version.outputs.version }}"
+          CHANGELOG="${{ inputs.workdir || 'packages/qvac-lib-infer-onnx' }}/CHANGELOG.md"
 
-            const hasNotes = files.some(file => file.filename === expected);
-            if (!hasNotes) {
-              core.setFailed(`Missing release notes file in PR changes: ${expected}`);
-            } else {
-              core.info(`Release notes file found in PR changes: ${expected}`);
-            }
+          echo "Checking for version $VERSION in $CHANGELOG"
+
+          # Ensure we are on the PR head (usually already true in Actions)
+          git fetch origin "${{ github.head_ref }}" --depth=1
+          git checkout FETCH_HEAD
+
+          if [ ! -f "$CHANGELOG" ]; then
+            echo "$CHANGELOG does not exist"
+            exit 1
+          fi
+
+          if ! grep -q "$VERSION" "$CHANGELOG"; then
+            echo "Version $VERSION not found in $CHANGELOG"
+            exit 1
+          fi
+
+          echo "Version $VERSION found in $CHANGELOG"
