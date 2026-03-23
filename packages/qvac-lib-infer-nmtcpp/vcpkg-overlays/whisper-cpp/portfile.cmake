@@ -13,6 +13,16 @@ vcpkg_from_github(
 
 set(PLATFORM_OPTIONS)
 
+# Disable Metal on iOS to prevent duplicate ObjC class ggml_metal_heap_ptr.
+# Both whispercpp and nmtcpp statically link ggml which includes ggml-metal.m.
+# On iOS they load into the same process, and the ObjC runtime can't handle
+# two classes with the same name — the app crashes on native Whisper init.
+# whispercpp keeps Metal (it benefits from GPU for real-time transcription).
+# nmtcpp falls back to CPU on iOS which is acceptable for translation workloads.
+if (VCPKG_TARGET_IS_IOS OR VCPKG_TARGET_IS_OSX)
+  list(APPEND PLATFORM_OPTIONS -DGGML_METAL=OFF -DGGML_METAL_EMBED_LIBRARY=OFF)
+endif()
+
 if (VCPKG_TARGET_IS_ANDROID)
   list(APPEND PLATFORM_OPTIONS -DWHISPER_NO_AVX=ON -DWHISPER_NO_AVX2=ON -DWHISPER_NO_FMA=ON)
   # Disable Vulkan on Android to avoid libvulkan.so dependency

@@ -61,6 +61,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_link_options(${qvac-lib-infer-whispercpp}_module PRIVATE -Wl,--exclude-libs,ALL)
 endif()
 
+# Hide internal symbols on Apple to reduce duplicate symbol collisions with
+# other addons that statically link the same ggml/inference-addon-cpp libraries.
+if(APPLE)
+  set_target_properties(${qvac-lib-infer-whispercpp} PROPERTIES
+    C_VISIBILITY_PRESET hidden
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+  )
+endif()
+
 target_sources(
   ${qvac-lib-infer-whispercpp}
   PRIVATE
