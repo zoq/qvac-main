@@ -1,7 +1,7 @@
 {
   "id": "clinical-chemistry-lab-result",
   "description": "Clinical chemistry lab result from Allied Care Experts Medical Center Bohol — structured table with test names, results, units, and reference ranges",
-  "image": "lab_results.png",
+  "image": "clinical_chemistry.png",
 
   "required_keywords": [
     "ALLIED CARE EXPERTS",
