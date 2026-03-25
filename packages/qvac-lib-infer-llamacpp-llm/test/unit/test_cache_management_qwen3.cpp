@@ -16,6 +16,12 @@
 
 #include "model-interface/LlamaModel.hpp"
 #include "test_common.hpp"
+#include <thread>
+#include <atomic>
+#include <future>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 namespace fs = std::filesystem;
 
@@ -619,4 +625,112 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeRestoresNPastBeforeTools) {
 
   llama_pos nPastBeforeTools2 = model2->getNPastBeforeTools();
   EXPECT_EQ(nPastBeforeTools2, -1);
+}
+
+
+TEST_F(CacheManagementQwen3Test, CancelMidGenerationWithToolsAtEnd) {
+  if (!isQwen3ModelPath(test_model_path)) {
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+  }
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  config_files["tools_at_end"] = "true";
+  auto model = createModel();
+  if (!model) {
+    FAIL() << "Model failed to load";
+  }
+
+  std::string inputWithTools =
+      R"([{"role": "session", "content": ")" + session1_path + R"("}, {"role": "user", "content": "What is the weather?"}, {"type": "function", "name": "getWeather", "description": "Get weather forecast", "parameters": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}}])";
+
+  // Set high n_predict to avoid natural completion
+  GenerationParams genParams;
+  genParams.n_predict = 1000;
+
+  std::atomic<int> tokenCount(0);
+  std::string collectedOutput;
+  std::promise<void> tokenPromise;
+  std::future<void> tokenFuture = tokenPromise.get_future();
+
+  LlamaModel::Prompt prompt;
+  prompt.input = inputWithTools;
+  prompt.generationParams = genParams;
+  prompt.outputCallback = [&](const std::string& token) {
+    collectedOutput += token;
+    if (tokenCount.fetch_add(1) == 0) {
+      try {
+        tokenPromise.set_value();
+      } catch (...) {}
+    }
+  };
+
+  std::exception_ptr exception = nullptr;
+  std::thread genThread([&]() {
+    try {
+      model->processPrompt(prompt);
+    } catch (...) {
+      exception = std::current_exception();
+    }
+  });
+
+  // Wait for first token with timeout
+  if (tokenFuture.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+    model->cancel();
+    genThread.join();
+    FAIL() << "No token generated within timeout - model may be stuck or generation too fast";
+    return;
+  }
+
+  // Cancel generation
+  model->cancel();
+
+  // Wait for thread to finish
+  genThread.join();
+
+  // Rethrow any exception from the thread
+  if (exception) {
+    std::rethrow_exception(exception);
+  }
+
+  // At least one token should have been generated
+  EXPECT_GT(tokenCount.load(), 0) << "Expected at least one token before cancel";
+  EXPECT_GT(collectedOutput.length(), 0) << "Expected non-empty output";
+
+  // After cancellation, check cache state
+  auto stats = model->runtimeStats();
+  double cacheTokens = getStatValue(stats, "CacheTokens");
+
+  // Compute expected conversation-only token count (no tools, no generation prompt)
+  std::string chatTemplate = qvac_lib_inference_addon_llama::utils::getToolsDynamicQwen3Template();
+  common_chat_templates_ptr tmpls_ = common_chat_templates_init(model->getModel(), chatTemplate);
+  auto allMessages = parseChatMessages(inputWithTools);
+  // Remove session messages
+  auto modelMessages = allMessages;
+  auto it = modelMessages.begin();
+  while (it != modelMessages.end()) {
+    if (it->role == "session") {
+      it = modelMessages.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  // Build prompt without tools and without generation prompt
+  common_chat_templates_inputs inputs;
+  inputs.use_jinja = true;
+  inputs.add_generation_prompt = false; // conversation only
+  inputs.messages = modelMessages;
+  // No tools
+  auto expectedPrompt = qvac_lib_inference_addon_llama::utils::getPrompt(tmpls_.get(), inputs);
+  auto expectedTokens = common_tokenize(llama_model_get_vocab(model->getModel()), expectedPrompt, true, true);
+  size_t expectedTokenCount = expectedTokens.size();
+
+  // Cache tokens should match the conversation-only token count after trim
+  EXPECT_EQ(cacheTokens, static_cast<double>(expectedTokenCount))
+      << "CacheTokens should equal conversation-only token count after trim";
+
+  // nPastBeforeTools should be reset to -1 after trim
+  EXPECT_EQ(model->getNPastBeforeTools(), -1)
+      << "nPastBeforeTools should be reset after trim";
 }
