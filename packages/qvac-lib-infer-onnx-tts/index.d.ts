@@ -139,6 +139,9 @@ declare namespace ONNXTTS {
   export type TTSRunInput = {
     type?: string
     input: string
+    enhance?: boolean
+    denoise?: boolean
+    outputSampleRate?: number
   }
 
   export {
