@@ -67,6 +67,7 @@ permissions:
 jobs:
   test-github-access:
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - name: Configure git auth for private GitHub deps
         shell: bash
