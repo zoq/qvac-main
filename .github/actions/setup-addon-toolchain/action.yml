@@ -102,15 +102,17 @@ runs:
         wget -q -O /tmp/vulkansdk.tar.xz https://sdk.lunarg.com/sdk/download/latest/linux/vulkan_sdk.tar.xz
         mkdir -p "$HOME/vulkan"
         tar xf /tmp/vulkansdk.tar.xz --strip-components=1 -C "$HOME/vulkan"
-        if [ "${{ inputs.arch }}" = "arm64" ]; then
-          echo "VULKAN_SDK=$HOME/vulkan/aarch64" >> "$GITHUB_ENV"
+        host_arch="$(uname -m)"
+        if [ "$host_arch" = "aarch64" ] || [ "$host_arch" = "arm64" ]; then
+          vulkan_sdk_dir="$HOME/vulkan/aarch64"
         else
-          echo "VULKAN_SDK=$HOME/vulkan/x86_64" >> "$GITHUB_ENV"
+          vulkan_sdk_dir="$HOME/vulkan/x86_64"
         fi
-        echo "PATH=$VULKAN_SDK/bin:$PATH" >> "$GITHUB_ENV"
-        echo "LD_LIBRARY_PATH=$VULKAN_SDK/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
-        echo "VK_ADD_LAYER_PATH=$VULKAN_SDK/share/vulkan/explicit_layer.d" >> "$GITHUB_ENV"
-        echo "PKG_CONFIG_PATH=$VULKAN_SDK/share/pkgconfig:$VULKAN_SDK/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+        echo "VULKAN_SDK=$vulkan_sdk_dir" >> "$GITHUB_ENV"
+        echo "PATH=$vulkan_sdk_dir/bin:$PATH" >> "$GITHUB_ENV"
+        echo "LD_LIBRARY_PATH=$vulkan_sdk_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+        echo "VK_ADD_LAYER_PATH=$vulkan_sdk_dir/share/vulkan/explicit_layer.d" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_PATH=$vulkan_sdk_dir/share/pkgconfig:$vulkan_sdk_dir/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
 
     - name: Install Vulkan SDK (Windows)
       if: ${{ runner.os == 'Windows' && inputs.needs-vulkan == 'true' }}

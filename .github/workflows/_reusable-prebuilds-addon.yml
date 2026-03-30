@@ -333,6 +333,25 @@ jobs:
           s3-bucket-path: ${{ inputs.vcpkg_s3_path }}
           cache-key-prefix: ${{ inputs.package_slug }}
 
+      - name: Verify Vulkan toolchain (Linux)
+        if: ${{ runner.os == 'Linux' && inputs.needs_vulkan }}
+        shell: bash
+        run: |
+          echo "VULKAN_SDK=${VULKAN_SDK:-<unset>}"
+          if [ -z "${VULKAN_SDK:-}" ]; then
+            echo "::error::VULKAN_SDK is not set"
+            exit 1
+          fi
+          if [ ! -d "${VULKAN_SDK}/include" ]; then
+            echo "::error::Vulkan include directory missing at ${VULKAN_SDK}/include"
+            exit 1
+          fi
+          if ! command -v glslc; then
+            echo "::error::glslc was not found on PATH"
+            exit 1
+          fi
+          glslc --version
+
       - name: Run bare-make generate
         shell: bash
         working-directory: ${{ env.WORKDIR }}
