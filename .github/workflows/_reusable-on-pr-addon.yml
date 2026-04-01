@@ -9,6 +9,25 @@ on:
       workdir:
         required: true
         type: string
+      artifact_prefix:
+        required: false
+        type: string
+        default: addon
+      test_models:
+        description: >
+          JSON array of HuggingFace model specs to download before cpp tests.
+          Format: "owner/repo/filename", rename: "...=output", shards: "...*count"
+        required: false
+        type: string
+        default: "[]"
+      needs_vulkan:
+        required: false
+        type: boolean
+        default: true
+      extra_generate_flags:
+        required: false
+        type: string
+        default: ""
       repository:
         required: false
         type: string
@@ -17,22 +36,6 @@ on:
         required: false
         type: string
         default: ""
-      run_verify:
-        required: false
-        type: boolean
-        default: true
-      run_cpp_tests:
-        required: false
-        type: boolean
-        default: true
-      run_integration_tests:
-        required: false
-        type: boolean
-        default: true
-      run_mobile_tests:
-        required: false
-        type: boolean
-        default: true
       publish_target:
         required: false
         type: string
@@ -41,19 +44,10 @@ on:
         required: false
         type: string
         default: dev
-    secrets:
-      AWS_ACCESS_KEY_ID:
+      run_ts_checks:
         required: false
-      AWS_SECRET_ACCESS_KEY:
-        required: false
-      MODEL_S3_BUCKET:
-        required: false
-      NPM_TOKEN:
-        required: true
-      PAT_TOKEN:
-        required: true
-      QASE_API_TOKEN:
-        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -77,6 +71,47 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
+  context:
+    needs: authorize
+    if: needs.authorize.outputs.allowed == 'true'
+    name: Resolve Context
+    runs-on: ubuntu-latest
+    outputs:
+      base_sha: ${{ steps.ctx.outputs.base_sha }}
+      head_sha: ${{ steps.ctx.outputs.head_sha }}
+    steps:
+      - name: Checkout
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        with:
+          fetch-depth: 0
+      - name: Resolve SHAs
+        id: ctx
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$EVENT_NAME" == "workflow_call" ]]; then
+            base_sha=$(git merge-base origin/main HEAD)
+            head_sha="$SHA"
+          else
+            base_sha="$BASE_SHA"
+            head_sha="$HEAD_SHA"
+          fi
+
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+          echo "Resolved:"
+          echo "  event=$EVENT_NAME"
+          echo "  base_sha=$base_sha"
+          echo "  head_sha=$head_sha"
+
   sanity-checks:
     if: needs.authorize.outputs.allowed == 'true'
     needs: authorize
@@ -89,24 +124,71 @@ jobs:
           secret-token: ${{ secrets.GITHUB_TOKEN }}
           npm-token: ${{ secrets.NPM_TOKEN }}
           pat-token: ${{ secrets.PAT_TOKEN }}
-          run-integration: ${{ inputs.run_verify }}
+          run-integration: ${{ needs.authorize.outputs.allowed == 'true' }}
           workdir: ${{ inputs.workdir }}
 
   cpp-lint:
-    if: needs.authorize.outputs.allowed == 'true' && inputs.run_verify
+    if: needs.authorize.outputs.allowed == 'true'
+    needs: [authorize, context]
     uses: tetherto/qvac-devops/.github/workflows/cpp-lint.yaml@v1.1.7
-    needs: authorize
+    secrets: inherit
+    with:
+      sha: ${{ needs.context.outputs.base_sha }}
+      pr_head_sha: ${{ needs.context.outputs.head_sha }}
+      workdir: ${{ inputs.workdir }}
+
+  cpp-tests:
+    if: needs.authorize.outputs.allowed == 'true'
+    needs: [authorize, sanity-checks]
+    uses: ./.github/workflows/_reusable-cpp-tests-addon.yml
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      MODEL_S3_BUCKET: ${{ secrets.MODEL_S3_BUCKET }}
     with:
-      sha: ${{ github.event.pull_request.base.sha || github.sha }}
-      pr_head_sha: ${{ github.event.pull_request.head.sha || github.sha }}
       workdir: ${{ inputs.workdir }}
+      repository: ${{ inputs.repository || github.event.pull_request.head.repo.full_name }}
+      ref: ${{ inputs.ref || github.event.pull_request.head.ref }}
+      needs_vulkan: ${{ inputs.needs_vulkan }}
+      extra_generate_flags: ${{ inputs.extra_generate_flags }}
+      test_models: ${{ inputs.test_models }}
+
+  ts-checks:
+    if: needs.authorize.outputs.allowed == 'true' && inputs.run_ts_checks
+    needs: authorize
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
+        with:
+          node-version: 20
+
+      - name: Configure npm auth
+        working-directory: ${{ inputs.workdir }}
+        run: |
+          cat > .npmrc <<NPMRC
+          registry=https://registry.npmjs.org/
+          @qvac:registry=https://registry.npmjs.org/
+          //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
+          NPMRC
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.workdir }}
+        run: npm install
+
+      - name: Type declaration check
+        working-directory: ${{ inputs.workdir }}
+        run: npm run test:dts
 
   prebuild:
     needs: [authorize, sanity-checks]
-    if: needs.authorize.outputs.allowed == 'true' && inputs.run_verify
+    if: needs.authorize.outputs.allowed == 'true'
     permissions:
       contents: write
       packages: write
@@ -121,19 +203,8 @@ jobs:
     with:
       package_slug: ${{ inputs.package_slug }}
       workdir: ${{ inputs.workdir }}
+      artifact_prefix: ${{ inputs.artifact_prefix }}
       repository: ${{ inputs.repository || github.event.pull_request.head.repo.full_name }}
       ref: ${{ inputs.ref || github.event.pull_request.head.ref }}
       publish_target: ${{ inputs.publish_target }}
       tag: ${{ inputs.tag }}
-
-  merge-guard:
-    needs: [authorize, sanity-checks, cpp-lint, prebuild]
-    if: always()
-    uses: tetherto/qvac-devops/.github/workflows/public-pr.yml@v1.1.7
-    with:
-      sanity-checks-status: ${{ needs.sanity-checks.result == 'success' }}
-      build-status: ${{ needs.prebuild.result == 'success' }}
-      cpplint-status: ${{ needs.cpp-lint.result == 'success' || needs.cpp-lint.result == 'skipped' }}
-      cpp-tests-status: true
-      integration-status: true
-      mobile-tests-status: true

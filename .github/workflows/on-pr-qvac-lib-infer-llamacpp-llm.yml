@@ -16,108 +16,27 @@ on:
       - "packages/qvac-lib-infer-llamacpp-llm/**"
       - ".github/workflows/*llamacpp-llm*.yml"
   workflow_dispatch:
-  
-  workflow_call:
 
-permissions:
-  contents: read
-  pull-requests: read
-  packages: read
+  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
-env:
-  PKG_DIR: packages/qvac-lib-infer-llamacpp-llm
-
 jobs:
-  authorize:
-    runs-on: ubuntu-latest
+  on-pr:
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
-    outputs:
-      allowed: ${{ steps.auth.outputs.allowed }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
-      - name: Authorize
-        id: auth
-        uses: ./.github/actions/authorize-pr
-        with:
-          github-token: ${{ github.token }}
-
-  context:
-    needs: authorize
-    if: needs.authorize.outputs.allowed == 'true'
-    name: Resolve Context
-    runs-on: ubuntu-latest
-    outputs:
-      base_sha: ${{ steps.ctx.outputs.base_sha }}
-      head_sha: ${{ steps.ctx.outputs.head_sha }}
-    steps:
-      - name: Checkout
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
-        with:
-          fetch-depth: 0
-      - name: Resolve SHAs
-        id: ctx
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-
-          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$EVENT_NAME" == "workflow_call" ]]; then
-            base_sha=$(git merge-base origin/main HEAD)
-            head_sha="$SHA"
-          else
-            base_sha="$BASE_SHA"
-            head_sha="$HEAD_SHA"
-          fi
-
-          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
-          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
-
-          echo "Resolved:"
-          echo "  event=$EVENT_NAME"
-          echo "  base_sha=$base_sha"
-          echo "  head_sha=$head_sha"
-
-  sanity-checks:
-    if: needs.authorize.outputs.allowed == 'true'
-    needs: authorize
-    runs-on: ubuntu-latest
-    environment: release
-    steps:
-      - name: Run Sanity checks
-        uses: tetherto/qvac-devops/.github/actions/sanity-checks@v1.1.7
-        with:
-          secret-token: ${{ secrets.GITHUB_TOKEN }}
-          npm-token: ${{ secrets.NPM_TOKEN }}
-          pat-token: ${{ secrets.PAT_TOKEN }}
-          run-integration: ${{ needs.authorize.outputs.allowed == 'true' }}
-          workdir: packages/qvac-lib-infer-llamacpp-llm
-
-  cpp-tests:
-    if: needs.authorize.outputs.allowed == 'true'
-    needs: [authorize, sanity-checks]
-    uses: ./.github/workflows/_reusable-cpp-tests-addon.yml
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      MODEL_S3_BUCKET: ${{ secrets.MODEL_S3_BUCKET }}
+      packages: write
+    uses: ./.github/workflows/_reusable-on-pr-addon.yml
+    secrets: inherit
     with:
+      package_slug: qvac-lib-infer-llamacpp-llm
       workdir: packages/qvac-lib-infer-llamacpp-llm
-      repository: ${{ github.event.pull_request.head.repo.full_name }}
-      ref: ${{ github.event.pull_request.head.ref }}
+      artifact_prefix: llama-cpp
+      publish_target: gpr
+      tag: pr-${{ github.event.pull_request.number }}
       test_models: >-
         [
           "bartowski/Llama-3.2-1B-Instruct-GGUF/Llama-3.2-1B-Instruct-Q4_0.gguf",
@@ -131,73 +50,8 @@ jobs:
           "jmb95/bitnet_b1_58-large-TQ2_0-sharded/bitnet_b1_58-large-TQ2_0.tensors.txt"
         ]
 
-  cpp-lint:
-    if: needs.authorize.outputs.allowed == 'true'
-    uses: tetherto/qvac-devops/.github/workflows/cpp-lint.yaml@v1.1.7
-    needs: [authorize, context]
-    secrets: inherit
-    with:
-      sha: ${{ needs.context.outputs.base_sha }}
-      pr_head_sha: ${{ needs.context.outputs.head_sha }}
-      workdir: packages/qvac-lib-infer-llamacpp-llm
-
-  ts-checks:
-    if: needs.authorize.outputs.allowed == 'true'
-    needs: authorize
-    runs-on: ubuntu-latest
-    environment: release
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # 6.3.0
-        with:
-          node-version: 20
-
-      - name: Configure npm auth
-        working-directory: packages/qvac-lib-infer-llamacpp-llm
-        run: |
-          cat > .npmrc <<NPMRC
-          registry=https://registry.npmjs.org/
-          @qvac:registry=https://registry.npmjs.org/
-          //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
-          NPMRC
-
-      - name: Install dependencies
-        working-directory: packages/qvac-lib-infer-llamacpp-llm
-        run: npm install
-
-      - name: Type declaration check
-        working-directory: packages/qvac-lib-infer-llamacpp-llm
-        run: npm run test:dts
-
-  prebuild:
-    needs: [authorize, sanity-checks]
-    if: needs.authorize.outputs.allowed == 'true'
-    permissions:
-      contents: write
-      packages: write
-      pull-requests: write
-    uses: ./.github/workflows/_reusable-prebuilds-addon.yml
-    secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      MODEL_S3_BUCKET: ${{ secrets.MODEL_S3_BUCKET }}
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-    with:
-      package_slug: qvac-lib-infer-llamacpp-llm
-      workdir: packages/qvac-lib-infer-llamacpp-llm
-      artifact_prefix: llama-cpp
-      repository: ${{ github.event.pull_request.head.repo.full_name }}
-      ref: ${{ github.event.pull_request.head.ref }}
-      publish_target: "gpr"
-      tag: pr-${{ github.event.pull_request.number }}
-
   run-integration-tests:
-    if: needs.authorize.outputs.allowed == 'true'
-    needs: [authorize, prebuild]
+    needs: on-pr
     uses: ./.github/workflows/integration-test-qvac-lib-infer-llamacpp-llm.yml
     secrets: inherit
     with:
@@ -208,9 +62,8 @@ jobs:
     permissions:
       contents: read
       packages: read
-      pull-requests: write # Allow commenting on PRs
-    if: needs.authorize.outputs.allowed == 'true'
-    needs: [authorize, prebuild]
+      pull-requests: write
+    needs: on-pr
     uses: ./.github/workflows/integration-mobile-test-qvac-lib-infer-llamacpp-llm.yml
     secrets: inherit
     with:
@@ -218,19 +71,9 @@ jobs:
       ref: ${{ github.event.pull_request.head.ref }}
 
   merge-guard:
-    needs:
-      [
-        authorize,
-        run-integration-tests,
-        run-mobile-integration-tests,
-        sanity-checks,
-        prebuild,
-        cpp-tests,
-        cpp-lint,
-        ts-checks,
-      ]
+    needs: [on-pr, run-integration-tests, run-mobile-integration-tests]
     if: always()
     uses: tetherto/qvac-devops/.github/workflows/public-pr.yml@v1.1.7
     with:
-      sanity-checks-status: ${{ needs.sanity-checks.result == 'success' }}
-      build-status: ${{ needs.prebuild.result == 'success'}}
+      sanity-checks-status: ${{ needs.on-pr.result == 'success' }}
+      build-status: ${{ needs.on-pr.result == 'success' }}
