@@ -71,9 +71,17 @@ jobs:
       pull-requests: write
     if: needs.authorize.outputs.allowed == 'true'
     needs: [authorize, sanity-checks]
+<<<<<<< Updated upstream
     uses: ./.github/workflows/cpp-tests-embed.yml
     secrets: inherit
+=======
+    uses: ./.github/workflows/_reusable-cpp-tests-addon.yml
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+>>>>>>> Stashed changes
     with:
+      workdir: packages/qvac-lib-infer-llamacpp-embed
       repository: ${{ github.event.pull_request.head.repo.full_name }}
       ref: ${{ github.event.pull_request.head.ref }}
 
@@ -115,9 +123,22 @@ jobs:
       pull-requests: write
     if: needs.authorize.outputs.allowed == 'true'
     needs: [authorize, sanity-checks]
+<<<<<<< Updated upstream
     uses: ./.github/workflows/prebuilds-qvac-lib-infer-llamacpp-embed.yml
     secrets: inherit
+=======
+    uses: ./.github/workflows/_reusable-prebuilds-addon.yml
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      MODEL_S3_BUCKET: ${{ secrets.MODEL_S3_BUCKET }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+>>>>>>> Stashed changes
     with:
+      package_slug: qvac-lib-infer-llamacpp-embed
+      workdir: packages/qvac-lib-infer-llamacpp-embed
+      artifact_prefix: llama-cpp-embed
       repository: ${{ github.event.pull_request.head.repo.full_name }}
       ref: ${{ github.event.pull_request.head.ref }}
       tag: "dev"

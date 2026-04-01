@@ -40,23 +40,9 @@ permissions:
   contents: read
 
 jobs:
-  print-context:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - run: |
-          echo "Inputs Context: $INPUTS_CONTEXT"
-        env:
-          INPUTS_CONTEXT: ${{ toJSON(inputs) }}
-      - run: |
-          echo "GitHub Context: $GITHUB_CONTEXT"
-        env:
-          GITHUB_CONTEXT: ${{ toJSON(github) }}
-
-  delete-npm-versions-trigger:
-    permissions:
-      packages: write
-    uses: tetherto/qvac-devops/.github/workflows/public-delete-npm-versions.yml@v1.1.7
+  on-pr-close:
+    uses: ./.github/workflows/_reusable-on-pr-close-addon.yml
+    secrets: inherit
     with:
       version: ${{ inputs.version }}
       pr-number: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || inputs.pr-number }}
@@ -64,4 +50,3 @@ jobs:
       packages: ${{ inputs.packages || 'qvac-lib-infer-llamacpp-embed' }}
       # PR-close runs default to dry-run=true for safety; manual runs respect the UI toggle (true/false)
       dry-run: ${{ github.event_name == 'pull_request' && true || inputs.dry-run }}
-    secrets: inherit
