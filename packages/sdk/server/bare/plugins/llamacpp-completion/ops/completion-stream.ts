@@ -44,6 +44,12 @@ interface ResponseWithStats {
     TTFT: number;
     TPS: number;
     CacheTokens: number;
+    promptTokens: number;
+    generatedTokens: number;
+    contextSlides: number;
+    nPastBeforeTools: number;
+    firstMsgTokens: number;
+    toolsTrimmed: number;
   };
 }
 
@@ -202,15 +208,18 @@ function prepareMessagesForCache(
 ): ChatHistory[] {
   const addTools = tools?.length ? transformMessages(tools) : [];
   if (cacheExists && history.length > 0) {
-    const userMsg = history[history.length - 1] as HistoryMsg
-    const lastMessages = toolsMode === ToolsModeType.dynamic
-      ? lastMessagesWithAssistantFirst(history)
-      : [userMsg]
+    const lastMsg = history[history.length - 1] as HistoryMsg;
+    const isToolChainContinuation = toolsMode === ToolsModeType.dynamic && lastMsg.role === 'tool';
+    const lastMessages = isToolChainContinuation
+      ? [lastMsg]
+      : toolsMode === ToolsModeType.dynamic
+        ? lastMessagesWithAssistantFirst(history)
+        : [lastMsg];
     const lastTransformedMessages = transformMessages(lastMessages);
     return [
       { role: "session", content: cachePathToUse },
       ...lastTransformedMessages,
-      ...addTools,
+      ...(isToolChainContinuation ? [] : addTools),
     ];
   }
 
@@ -285,6 +294,12 @@ async function* processModelResponse(
     timeToFirstToken: responseWithStats.stats?.TTFT ?? 0,
     tokensPerSecond: responseWithStats.stats?.TPS ?? 0,
     cacheTokens: responseWithStats.stats?.CacheTokens ?? 0,
+    promptTokens: responseWithStats.stats?.promptTokens ?? 0,
+    generatedTokens: responseWithStats.stats?.generatedTokens ?? 0,
+    contextSlides: responseWithStats.stats?.contextSlides ?? 0,
+    nPastBeforeTools: responseWithStats.stats?.nPastBeforeTools ?? 0,
+    firstMsgTokens: responseWithStats.stats?.firstMsgTokens ?? 0,
+    toolsTrimmed: (responseWithStats.stats?.toolsTrimmed ?? 0) === 1,
   };
 
   return { stats, toolCalls: toolCallsResult };
