@@ -1,13 +1,67 @@
 /**
  * Agentic Tools Example — Reference Implementation
  *
- * Demonstrates the full agentic tool-calling pattern with anchored tools:
- * - Multi-round tool chains (model calls tool → gets result → calls next tool)
- * - Thinking kept during chain for KV cache compatibility
- * - History cleanup after chain completes
- * - Follow-up turns with clean history
+ * Demonstrates the full agentic tool-calling pattern with anchored
+ * (dynamic) tools and validates addon stats at every step.
  *
- * Run: bun run examples/agentic-tools.ts
+ * Run:
+ *   bun run examples/agentic-tools.ts              # all scenarios
+ *   bun run examples/agentic-tools.ts --scenario=3  # single scenario
+ *   bun run examples/agentic-tools.ts --verbose     # show model output
+ *
+ * Exit code 1 on any assertion failure.
+ *
+ * ─── Dynamic Tools Contract ──────────────────────────────────────────
+ *
+ * When using toolsMode: "dynamic", tools are anchored in the KV cache
+ * after the user message. The app and SDK share the following contract:
+ *
+ * SDK responsibilities (handled automatically):
+ *   - Anchors tools after the last user message in the prompt
+ *   - Skips re-sending tools on chain continuation rounds (tools
+ *     already cached from round 1)
+ *   - Sends only new tool responses on chain rounds (the assistant
+ *     message is already in the cache)
+ *   - Collects ALL consecutive tool responses when multiple tools
+ *     were called in one round
+ *   - Forwards addon stats: nPastBeforeTools, toolsTrimmed, etc.
+ *
+ * Addon responsibilities (handled automatically):
+ *   - Anchored template places tools after the last user message
+ *   - Keeps tools in cache when output contains <tool_call>
+ *   - Removes tools from cache when chain completes (no tool call)
+ *   - Tracks anchor position (nPastBeforeTools) stable across rounds
+ *   - Adds generation prompt for role "tool" (same as "user")
+ *
+ * App responsibilities (the app MUST follow these rules):
+ *   1. KEEP <think> blocks in assistant content during tool chain.
+ *      The KV cache contains the thinking tokens from generation.
+ *      If the app strips thinking before the chain completes,
+ *      the prompt won't match the cache → cache miss → re-eval.
+ *   2. KEEP the full raw assistant output (including <tool_call> XML)
+ *      in the history content field during the chain. The SDK doesn't
+ *      pass the tool_calls structured field to the addon — the
+ *      template renders tool calls from the content string.
+ *   3. PASS a stable kvCache key across all rounds of a chain.
+ *      Without a cache key, every round is a cache miss and anchoring
+ *      provides no benefit.
+ *   4. CLEAN UP history after the chain completes:
+ *      - Remove all intermediate messages (assistant+tool_call,
+ *        tool responses) from the chain
+ *      - Strip <think> from the final answer
+ *      - Append only the clean final answer as the assistant message
+ *      This keeps history small for subsequent turns.
+ *   5. DO NOT modify or reorder messages that are already in the cache.
+ *      History is append-only during a chain.
+ *
+ * Cache lifecycle during a tool chain:
+ *   Round 1: [system, user, TOOLS, assistant(gen)] → tools cached at anchor
+ *   Round 2: [tool_response] appended → model generates next step
+ *   Round N: [tool_response] appended → model gives final answer
+ *   Cleanup: everything after anchor removed, clean answer appended
+ *   Next turn: new user message + new tools → new anchor position
+ *
+ * ─────────────────────────────────────────────────────────────────────
  */
 
 import { z } from "zod"
@@ -515,6 +569,50 @@ const scenarios: Scenario[] = [
       assert(last.toolsTrimmed, "final round should trim tools")
 
       return { passed: true, detail: `nPBT=${firstStat(s).nPastBeforeTools}, trimmed=${last.toolsTrimmed}` }
+    },
+  },
+  {
+    name: "Empty tool response",
+    description: "Tool returns empty string → model should still produce a response",
+    async run(modelId, kvCache, verbose) {
+      const history: Array<{ role: string; content: string }> = [
+        { role: "system", content: "You are a helpful assistant. If a tool returns no data, tell the user the information is unavailable." },
+        { role: "user", content: "What's the weather in Tokyo?" },
+      ]
+
+      // Round 1: get the tool call
+      const round1 = completion({ modelId, history, tools: [weatherTool], kvCache: kvCache + "-s9", stream: true })
+      let fullText = ""
+      for await (const token of round1.tokenStream) {
+        fullText += token
+        if (verbose) process.stdout.write(token)
+      }
+      if (verbose) console.log()
+      const round1Stats = await round1.stats
+      const toolCalls = parseToolCalls(fullText)
+      assert(toolCalls.length > 0, "round 1 should produce a tool call")
+
+      // Inject empty tool response
+      history.push({ role: "assistant", content: fullText })
+      history.push({ role: "tool", content: "" })
+
+      // Round 2: model should handle empty response gracefully
+      const round2 = completion({ modelId, history, tools: [weatherTool], kvCache: kvCache + "-s9", stream: true })
+      let answer = ""
+      for await (const token of round2.tokenStream) {
+        answer += token
+        if (verbose) process.stdout.write(token)
+      }
+      if (verbose) console.log()
+      const round2Stats = await round2.stats
+
+      const cleanAnswer = stripThinking(answer)
+      assert(cleanAnswer.length > 0, "model should produce a response even with empty tool result")
+      assert(round1Stats !== undefined, "round 1 should have stats")
+      assert(round2Stats !== undefined, "round 2 should have stats")
+      assert((round2Stats?.generatedTokens ?? 0) > 1, `should generate more than 1 token, got ${round2Stats?.generatedTokens}`)
+
+      return { passed: true, detail: `answer_len=${cleanAnswer.length}, gen=${round2Stats?.generatedTokens}` }
     },
   },
 ]

@@ -199,6 +199,25 @@ function lastMessagesWithAssistantFirst (history: HistoryMsg[]): HistoryMsg[] {
   return lastMessages
 }
 
+/**
+ * Dynamic tools (anchored) cache contract:
+ *
+ * Round 1 (cache miss): send full history + tools.
+ *   The addon template anchors tools after the last user message.
+ *   After generation, tools stay in cache if model called a tool.
+ *
+ * Round 2+ (chain continuation, last msg is role "tool"):
+ *   Send ONLY the new tool response(s). The assistant message and
+ *   tools are already in the KV cache from previous rounds.
+ *   Tools are NOT re-sent — the addon preserves them at the anchor.
+ *
+ * New turn (last msg is role "user"):
+ *   Send assistant + user messages + tools. A new anchor is created.
+ *
+ * The app must keep <think> blocks and raw <tool_call> XML in
+ * assistant content during the chain (see agentic-tools.ts for the
+ * full contract).
+ */
 function prepareMessagesForCache(
   cachePathToUse: string,
   cacheExists: boolean,
@@ -213,7 +232,7 @@ function prepareMessagesForCache(
     let lastMessages: HistoryMsg[];
     if (isToolChainContinuation) {
       // Collect all consecutive tool responses from the end of history.
-      // The assistant message is already in the KV cache.
+      // The assistant message and tools are already in the KV cache.
       lastMessages = [];
       for (let i = history.length - 1; i >= 0; i--) {
         if ((history[i] as HistoryMsg).role === 'tool') {
