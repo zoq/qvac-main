@@ -39,13 +39,13 @@ async function resolveLavaSRArtifacts(
   const dnSrc = config.ttsDenoiserSrc;
 
   if (bbSrc) {
-    promises.push(resolve(bbSrc).then((p) => { paths["enhancerBackbonePath"] = p; }));
+    promises.push(resolve(bbSrc).then((p) => { paths["enhancerBackbonePath"] = path.resolve(p); }));
   }
   if (shSrc) {
-    promises.push(resolve(shSrc).then((p) => { paths["enhancerSpecHeadPath"] = p; }));
+    promises.push(resolve(shSrc).then((p) => { paths["enhancerSpecHeadPath"] = path.resolve(p); }));
   }
   if (dnSrc) {
-    promises.push(resolve(dnSrc).then((p) => { paths["denoiserPath"] = p; }));
+    promises.push(resolve(dnSrc).then((p) => { paths["denoiserPath"] = path.resolve(p); }));
   }
 
   await Promise.all(promises);
