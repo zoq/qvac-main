@@ -449,6 +449,16 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeRestoresNPastBeforeTools) {
 // Regression test: context sliding during generation with tools_at_end
 // must adjust nPastBeforeTools so the post-generation trim does not leave
 // stale tool tokens in the KV cache.
+//
+// Strategy: two-phase comparison.
+//   Phase 1 (baseline): large context, n_predict=0 → no generation,
+//     no sliding. nPastBeforeTools is the original boundary.
+//   Phase 2 (sliding): small context, n_predict=-2 → generation fills
+//     context, sliding fires. After trim, nPastBeforeTools should be
+//     smaller than baseline because adjustAfterSlide reduced it.
+//
+//   With fix:    nPastBeforeTools < baseline (adjusted)
+//   Without fix: nPastBeforeTools == baseline (stale) → FAIL
 TEST_F(
     CacheManagementQwen3Test,
     CacheToolsAtEndSlidingDuringGenDoesNotLeakToolTokens) {
@@ -460,79 +470,81 @@ TEST_F(
     FAIL() << "Test model not found";
   }
 
-  // Small context + n_discarded + fill-context predict to guarantee sliding
-  config_files["tools_at_end"] = "true";
-  config_files["ctx_size"] = "512";
-  config_files["n_discarded"] = "100";
-  config_files["n_predict"] = "-2";  // generate until context is full
-  auto model = createModel();
-  if (!model) {
-    FAIL() << "Model failed to load";
-  }
-
-  // Turn 1: short user message + large tool definition.
-  // Tools ~350 tokens + conversation ~20 = ~370 prefill. n_predict=-2
-  // fills the remaining ~142 tokens, guaranteeing at least one slide.
-  // After trim only conversation tokens should remain.
-  std::string input1 = R"([{"role": "session", "content": "test_session1_qwen3.bin"},)"
-      R"( {"role": "user", "content": "Hi"},)"
-      R"( {"type": "function", "name": "get_weather",)"
-      R"( "description": "Get detailed weather forecast data with temperature )"
-      R"(humidity wind speed precipitation UV index visibility atmospheric )"
-      R"(pressure sunrise sunset times weather alerts air quality index tidal )"
-      R"(information solar radiation data pollen count road conditions marine )"
-      R"(forecasts aviation weather fire danger ratings drought indices )"
-      R"(tropical cyclone tracking severe storm warnings fog advisories flood )"
-      R"(watches winter storm alerts heat advisories wind chill factors dew )"
-      R"(point calculations relative humidity measurements barometric pressure )"
-      R"(trends cloud cover percentages precipitation probability snowfall )"
-      R"(accumulation rainfall intensity thunderstorm likelihood tornado risk )"
-      R"(assessment hail size predictions",)"
+  // Shared tool definition and user message for both phases
+  std::string toolJson =
+      R"({"type": "function", "name": "get_weather",)"
+      R"( "description": "Get weather forecast for a city",)"
       R"( "parameters": {"type": "object", "properties": {)"
       R"("city": {"type": "string", "description": "City name"},)"
       R"("country": {"type": "string", "description": "Country code"},)"
-      R"("lat": {"type": "number", "description": "Latitude"},)"
-      R"("lon": {"type": "number", "description": "Longitude"},)"
-      R"("zip": {"type": "string", "description": "ZIP code"},)"
-      R"("units": {"type": "string", "description": "Units metric or imperial"},)"
-      R"("lang": {"type": "string", "description": "Language code"},)"
-      R"("forecast_days": {"type": "integer", "description": "Days 1-14"},)"
-      R"("hourly": {"type": "boolean", "description": "Hourly data"},)"
-      R"("alerts": {"type": "boolean", "description": "Weather alerts"},)"
-      R"("aqi": {"type": "boolean", "description": "Air quality"},)"
-      R"("tides": {"type": "boolean", "description": "Tide info"},)"
-      R"("solar": {"type": "boolean", "description": "Solar data"},)"
-      R"("marine": {"type": "boolean", "description": "Marine forecasts"},)"
-      R"("aviation": {"type": "boolean", "description": "Aviation weather"},)"
-      R"("agricultural": {"type": "boolean", "description": "Agricultural data"})"
-      R"(}, "required": ["city"]}}])";
+      R"("units": {"type": "string", "description": "Units metric or imperial"})"
+      R"(}, "required": ["city"]}})";
 
+  std::string userMsg =
+      "I am planning a comprehensive outdoor event for next Saturday and "
+      "I need very detailed weather information for the entire weekend. "
+      "Please check the forecast for New York City including temperature "
+      "ranges, precipitation probability, wind speed and direction, "
+      "humidity levels, UV index, sunrise and sunset times, and any "
+      "severe weather advisories that might be in effect.";
+
+  // ── Phase 1 (baseline): large context, no generation, no sliding ──
+  config_files["tools_at_end"] = "true";
+  config_files["ctx_size"] = "2048";
+  config_files["n_predict"] = "0";
+  auto baselineModel = createModel();
+  if (!baselineModel) {
+    FAIL() << "Baseline model failed to load";
+  }
+
+  std::string baselineInput =
+      R"([{"role": "user", "content": ")" + userMsg + R"("}, )" + toolJson + R"(])";
+  processPromptString(baselineModel, baselineInput);
+  auto baselineStats = baselineModel->runtimeStats();
+  double baselineNPBT = getStatValue(baselineStats, "nPastBeforeTools");
+  double baselineSlides = getStatValue(baselineStats, "contextSlides");
+
+  EXPECT_EQ(baselineSlides, 0)
+      << "Baseline must not slide (n_predict=0 in large context)";
+  EXPECT_GT(baselineNPBT, 0)
+      << "Baseline nPastBeforeTools must be set";
+
+  // ── Phase 2 (sliding): small context, fill with generation ──
+  config_files["ctx_size"] = "512";
+  config_files["n_discarded"] = "100";
+  config_files["n_predict"] = "-2";
+  auto slideModel = createModel();
+  if (!slideModel) {
+    FAIL() << "Sliding model failed to load";
+  }
+
+  std::string slideInput =
+      R"([{"role": "user", "content": ")" + userMsg + R"("}, )" + toolJson + R"(])";
   EXPECT_NO_THROW({
-    std::string output = processPromptString(model, input1);
+    std::string output = processPromptString(slideModel, slideInput);
     EXPECT_GE(output.length(), 0);
   });
 
-  auto stats1 = model->runtimeStats();
-  double cacheTokens1 = getStatValue(stats1, "CacheTokens");
-  double contextSlides1 = getStatValue(stats1, "contextSlides");
+  auto slideStats = slideModel->runtimeStats();
+  double slideNPBT = getStatValue(slideStats, "nPastBeforeTools");
+  double slideSlides = getStatValue(slideStats, "contextSlides");
+  double slideTrimmed = getStatValue(slideStats, "toolsTrimmed");
 
-  EXPECT_GT(contextSlides1, 0)
-      << "Expected context sliding to occur during generation";
+  EXPECT_GT(slideSlides, 0)
+      << "Context sliding must occur during generation";
 
-  double toolsTrimmed1 = getStatValue(stats1, "toolsTrimmed");
-  double nPastBeforeTools1 = getStatValue(stats1, "nPastBeforeTools");
-
-  if (toolsTrimmed1 > 0) {
-    // Tools were trimmed (model didn't produce <tool_call>).
-    // CacheTokens should equal the adjusted nPastBeforeTools boundary.
-    EXPECT_GT(nPastBeforeTools1, 0)
-        << "nPastBeforeTools should be positive when tools were trimmed";
-    EXPECT_EQ(cacheTokens1, nPastBeforeTools1)
-        << "CacheTokens should equal nPastBeforeTools after trim";
+  if (slideTrimmed > 0) {
+    // Tools were trimmed. nPastBeforeTools should be less than baseline
+    // because adjustAfterSlide reduced it during sliding.
+    EXPECT_LT(slideNPBT, baselineNPBT)
+        << "After sliding + trim, nPastBeforeTools (" << slideNPBT
+        << ") must be less than baseline (" << baselineNPBT
+        << "). If equal, adjustAfterSlide is not working.";
   } else {
-    // Tools were kept (model produced <tool_call> in output).
-    // CacheTokens includes tools + generated tokens.
-    EXPECT_GT(cacheTokens1, nPastBeforeTools1)
-        << "CacheTokens should exceed nPastBeforeTools when tools kept";
+    // Tools were kept (model produced <tool_call>). The boundary
+    // should still have been adjusted, but we can't verify the trim.
+    // At minimum, nPastBeforeTools should not exceed the baseline.
+    EXPECT_LE(slideNPBT, baselineNPBT)
+        << "nPastBeforeTools should not exceed baseline after sliding";
   }
 }
