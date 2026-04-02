@@ -6,41 +6,53 @@ import type { TtsResponse } from "@/server/bare/types/addon-responses";
 
 export async function* textToSpeech(
   params: TtsRequest,
-): AsyncGenerator<{ buffer: number[] }, { modelExecutionMs: number; stats?: TtsStats }> {
-  const { modelId, inputType, text, stream } = ttsRequestSchema.parse(params);
+): AsyncGenerator<{ buffer: number[]; sampleRate?: number }, { modelExecutionMs: number; stats?: TtsStats }> {
+  const parsed = ttsRequestSchema.parse(params);
+  const { modelId, text, stream } = parsed;
 
   const model = getModel(modelId);
 
+  const runInput: Record<string, unknown> = { input: text, inputType: parsed.inputType };
+  if (parsed.enhance !== undefined) runInput["enhance"] = parsed.enhance;
+  if (parsed.denoise !== undefined) runInput["denoise"] = parsed.denoise;
+  if (parsed.outputSampleRate !== undefined) runInput["outputSampleRate"] = parsed.outputSampleRate;
+
   const modelStart = nowMs();
-  const response = (await model.run({ input: text, inputType })) as unknown as TtsResponse;
+  const response = (await model.run(runInput)) as unknown as TtsResponse;
+
+  let lastSampleRate: number | undefined;
 
   if (!stream) {
-    // Non-streaming mode: collect all chunks and return once
     let completeBuffer: number[] = [];
 
     for await (const data of response.iterate()) {
       completeBuffer = completeBuffer.concat(Array.from(data.outputArray));
+      if (data.sampleRate !== undefined) lastSampleRate = data.sampleRate;
     }
 
     const modelExecutionMs = nowMs() - modelStart;
     const stats: TtsStats = {
       ...(response.stats?.audioDurationMs !== undefined && { audioDuration: response.stats.audioDurationMs }),
       ...(response.stats?.totalSamples !== undefined && { totalSamples: response.stats.totalSamples }),
+      ...(response.stats?.sampleRate !== undefined && { sampleRate: response.stats.sampleRate }),
+      ...(lastSampleRate !== undefined && { sampleRate: lastSampleRate }),
     };
 
-    yield { buffer: completeBuffer };
+    yield { buffer: completeBuffer, ...(lastSampleRate !== undefined && { sampleRate: lastSampleRate }) };
     return buildStreamResult(modelExecutionMs, hasDefinedValues(stats) ? stats : undefined);
   }
 
-  // Streaming mode: yield chunks as they arrive
   for await (const data of response.iterate()) {
-    yield { buffer: Array.from(data.outputArray) };
+    if (data.sampleRate !== undefined) lastSampleRate = data.sampleRate;
+    yield { buffer: Array.from(data.outputArray), ...(data.sampleRate !== undefined && { sampleRate: data.sampleRate }) };
   }
 
   const modelExecutionMs = nowMs() - modelStart;
   const stats: TtsStats = {
     ...(response.stats?.audioDurationMs !== undefined && { audioDuration: response.stats.audioDurationMs }),
     ...(response.stats?.totalSamples !== undefined && { totalSamples: response.stats.totalSamples }),
+    ...(response.stats?.sampleRate !== undefined && { sampleRate: response.stats.sampleRate }),
+    ...(lastSampleRate !== undefined && { sampleRate: lastSampleRate }),
   };
 
   return buildStreamResult(modelExecutionMs, hasDefinedValues(stats) ? stats : undefined);

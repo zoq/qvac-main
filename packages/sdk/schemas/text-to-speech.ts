@@ -11,9 +11,22 @@ export const TTS_LANGUAGES = [
 
 const ttsLanguageSchema = z.enum(TTS_LANGUAGES);
 
+const lavaSRRuntimeFields = {
+  enhance: z.boolean().optional(),
+  denoise: z.boolean().optional(),
+  outputSampleRate: z.number().int().min(8000).max(192000).optional(),
+};
+
+const lavaSRModelFields = {
+  ttsEnhancerBackboneSrc: modelSrcInputSchema.optional(),
+  ttsEnhancerSpecHeadSrc: modelSrcInputSchema.optional(),
+  ttsDenoiserSrc: modelSrcInputSchema.optional(),
+};
+
 export const ttsChatterboxRuntimeConfigSchema = z.object({
   ttsEngine: z.literal("chatterbox"),
   language: ttsLanguageSchema,
+  ...lavaSRRuntimeFields,
 });
 
 export const ttsSupertonicRuntimeConfigSchema = z.object({
@@ -21,6 +34,7 @@ export const ttsSupertonicRuntimeConfigSchema = z.object({
   language: ttsLanguageSchema,
   ttsSpeed: z.number().optional(),
   ttsNumInferenceSteps: z.number().optional(),
+  ...lavaSRRuntimeFields,
 });
 
 export const ttsRuntimeConfigSchema = z.union([
@@ -35,6 +49,7 @@ export const ttsChatterboxConfigSchema = ttsChatterboxRuntimeConfigSchema.extend
   ttsConditionalDecoderSrc: modelSrcInputSchema,
   ttsLanguageModelSrc: modelSrcInputSchema,
   referenceAudioSrc: modelSrcInputSchema,
+  ...lavaSRModelFields,
 });
 
 export const ttsSupertonicConfigSchema = ttsSupertonicRuntimeConfigSchema.extend({
@@ -43,6 +58,7 @@ export const ttsSupertonicConfigSchema = ttsSupertonicRuntimeConfigSchema.extend
   ttsLatentDenoiserSrc: modelSrcInputSchema,
   ttsVoiceDecoderSrc: modelSrcInputSchema,
   ttsVoiceSrc: modelSrcInputSchema,
+  ...lavaSRModelFields,
 });
 
 export const ttsConfigSchema = z.union([
@@ -55,6 +71,9 @@ export const ttsClientParamsSchema = z.object({
   inputType: z.string().default("text"),
   text: z.string().trim().min(1, "text must not be empty or whitespace-only"),
   stream: z.boolean().default(true),
+  enhance: z.boolean().optional(),
+  denoise: z.boolean().optional(),
+  outputSampleRate: z.number().int().min(8000).max(192000).optional(),
 });
 
 export const ttsRequestSchema = ttsClientParamsSchema.extend({
@@ -64,6 +83,7 @@ export const ttsRequestSchema = ttsClientParamsSchema.extend({
 export const ttsStatsSchema = z.object({
   audioDuration: z.number().optional(),
   totalSamples: z.number().optional(),
+  sampleRate: z.number().optional(),
 });
 
 export const ttsResponseSchema = z.object({
@@ -71,6 +91,7 @@ export const ttsResponseSchema = z.object({
   buffer: z.array(z.number()),
   done: z.boolean().default(false),
   stats: ttsStatsSchema.optional(),
+  sampleRate: z.number().optional(),
 });
 
 export type TtsLanguage = (typeof TTS_LANGUAGES)[number];

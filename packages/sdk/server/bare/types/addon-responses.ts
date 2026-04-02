@@ -27,11 +27,12 @@ export interface NmtResponse {
 export interface TtsStats {
   audioDurationMs?: number;
   totalSamples?: number;
+  sampleRate?: number;
 }
 
 export interface TtsResponse {
   stats?: TtsStats;
-  iterate(): AsyncIterable<{ outputArray: ArrayLike<number> }>;
+  iterate(): AsyncIterable<{ outputArray: ArrayLike<number>; sampleRate?: number }>;
 }
 
 export interface EmbedStats {
