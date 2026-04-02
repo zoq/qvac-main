@@ -210,11 +210,23 @@ function prepareMessagesForCache(
   if (cacheExists && history.length > 0) {
     const lastMsg = history[history.length - 1] as HistoryMsg;
     const isToolChainContinuation = toolsMode === ToolsModeType.dynamic && lastMsg.role === 'tool';
-    const lastMessages = isToolChainContinuation
-      ? [lastMsg]
-      : toolsMode === ToolsModeType.dynamic
-        ? lastMessagesWithAssistantFirst(history)
-        : [lastMsg];
+    let lastMessages: HistoryMsg[];
+    if (isToolChainContinuation) {
+      // Collect all consecutive tool responses from the end of history.
+      // The assistant message is already in the KV cache.
+      lastMessages = [];
+      for (let i = history.length - 1; i >= 0; i--) {
+        if ((history[i] as HistoryMsg).role === 'tool') {
+          lastMessages.unshift(history[i] as HistoryMsg);
+        } else {
+          break;
+        }
+      }
+    } else if (toolsMode === ToolsModeType.dynamic) {
+      lastMessages = lastMessagesWithAssistantFirst(history);
+    } else {
+      lastMessages = [lastMsg];
+    }
     const lastTransformedMessages = transformMessages(lastMessages);
     return [
       { role: "session", content: cachePathToUse },

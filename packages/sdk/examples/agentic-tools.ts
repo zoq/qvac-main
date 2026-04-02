@@ -321,6 +321,26 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    name: "Multi-tool chain",
+    description: "3 tools called at once → 3 responses → model summarizes all",
+    async run(modelId, kvCache, verbose) {
+      const history = [
+        { role: "system", content: "You are a helpful assistant. When asked for multiple pieces of information, call all relevant tools at once." },
+        { role: "user", content: "I need three things at once: the weather in Tokyo, the weather in London, and the stock price of AAPL. Get all three." },
+      ]
+      const result = await agenticTurn(modelId, history, [weatherTool, stockTool], kvCache + "-s5b", 3, verbose)
+      const names = result.toolCalls.map((tc) => tc.name)
+      const weatherCount = names.filter((n) => n === "get_weather").length
+      const hasStock = names.includes("get_stock_price")
+      // Pass if model called at least 2 weather + 1 stock, AND produced a final answer
+      const passed = weatherCount >= 2 && hasStock && result.answer.length > 10
+      return {
+        passed,
+        detail: `tools=${names.join(",")}, weather=${weatherCount}, stock=${hasStock ? "yes" : "no"}, answer_len=${result.answer.length}`,
+      }
+    },
+  },
+  {
     name: "Long chain (4-step)",
     description: "Weather in CEO's hometown → search CEO → search hometown → get_weather",
     async run(modelId, kvCache, verbose) {
