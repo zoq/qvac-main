@@ -602,3 +602,145 @@ TEST_F(
   // Cleanup session file
   std::remove(sessionPath.c_str());
 }
+
+// Same as above but with a conversation region larger than n_discarded.
+// No clamping — each slide discards exactly n_discarded tokens and the
+// anchor moves by exactly that amount per slide.
+TEST_F(
+    CacheManagementQwen3Test,
+    CacheToolsAtEndSlidingUnclampedFullDiscard) {
+  if (!isQwen3ModelPath(test_model_path)) {
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+  }
+
+  if (!hasValidModel()) {
+    FAIL() << "Test model not found";
+  }
+
+  std::string toolJson =
+      R"({"type": "function", "name": "get_weather",)"
+      R"( "description": "Get weather",)"
+      R"( "parameters": {"type": "object", "properties": {)"
+      R"("city": {"type": "string"})"
+      R"(}, "required": ["city"]}})";
+
+  // Long user message to ensure conversation region > n_discarded (50).
+  // ~150 tokens of user text → safeLimit ≈ 150 > 50, no clamping.
+  std::string userMsg =
+      "I am organizing a large outdoor music festival that will span three "
+      "full days next weekend and I need comprehensive weather forecasts for "
+      "each day. The festival will be held in Central Park, New York City. "
+      "Please provide detailed hourly temperature projections, precipitation "
+      "probability percentages, wind speed and direction forecasts, humidity "
+      "levels throughout the day, UV index readings, sunrise and sunset "
+      "times, and any severe weather advisories or watches that may be in "
+      "effect. I also need information about overnight low temperatures "
+      "since some attendees will be camping. Additionally check for any "
+      "fog advisories for the early morning sound check sessions.";
+
+  std::string sessionPath = "test_sliding_unclamped_qwen3.bin";
+
+  // ── Phase 1: establish session ──
+  config_files["tools_at_end"] = "true";
+  config_files["ctx_size"] = "2048";
+  config_files["n_predict"] = "0";
+  auto initModel = createModel();
+  if (!initModel) {
+    FAIL() << "Init model failed to load";
+  }
+
+  std::string initInput =
+      R"([{"role": "session", "content": ")" + sessionPath + R"("},)"
+      R"( {"role": "system", "content": "You are a helpful assistant."}])";
+  processPromptString(initModel, initInput);
+  std::string saveCmd =
+      R"([{"role": "session", "content": ")" + sessionPath
+      + R"("}, {"role": "session", "content": "save"}])";
+  processPromptString(initModel, saveCmd);
+
+  // ── Phase 2: baseline (no sliding) ──
+  config_files["ctx_size"] = "2048";
+  config_files["n_predict"] = "0";
+  auto baselineModel = createModel();
+  if (!baselineModel) {
+    FAIL() << "Baseline model failed to load";
+  }
+
+  std::string input =
+      R"([{"role": "session", "content": ")" + sessionPath + R"("},)"
+      R"( {"role": "user", "content": ")" + userMsg + R"("}, )" + toolJson + R"(])";
+  processPromptString(baselineModel, input);
+  auto baselineStats = baselineModel->runtimeStats();
+  double baselineNPBT = getStatValue(baselineStats, "nPastBeforeTools");
+  double baselineFirstMsg = getStatValue(baselineStats, "firstMsgTokens");
+  double baselineSlides = getStatValue(baselineStats, "contextSlides");
+
+  EXPECT_EQ(baselineSlides, 0) << "Baseline must not slide";
+  EXPECT_GT(baselineNPBT, 0) << "Baseline anchor must be set";
+
+  // Verify the conversation region is larger than n_discarded.
+  // Use a small n_discarded so the safe limit stays above it.
+  // With safeLimit ~70 and n_discarded=20, we can handle 3 slides
+  // unclamped (70-60=10 still positive). Limit generation to avoid
+  // exhausting the conversation region.
+  constexpr int nDiscarded = 20;
+  double safeLimit = baselineNPBT - baselineFirstMsg;
+  EXPECT_GT(safeLimit, nDiscarded)
+      << "Conversation region (" << safeLimit
+      << ") must exceed n_discarded (" << nDiscarded
+      << ") for unclamped test";
+
+  // ── Phase 3: sliding ──
+  // ctx=300 with prefill ~220 leaves ~80 tokens before first slide.
+  // n_predict=-2 fills context. n_discarded=20 means each slide
+  // discards 20 tokens. With safeLimit ~70, first 3 slides are
+  // unclamped (70, 50, 30 tokens remaining). Generation continues
+  // until model hits EOS or context can't slide anymore.
+  config_files["ctx_size"] = "300";
+  config_files["n_discarded"] = std::to_string(nDiscarded);
+  config_files["n_predict"] = "-2";
+  auto slideModel = createModel();
+  if (!slideModel) {
+    FAIL() << "Sliding model failed to load";
+  }
+
+  EXPECT_NO_THROW({
+    std::string output = processPromptString(slideModel, input);
+    EXPECT_GE(output.length(), 0);
+  });
+
+  auto slideStats = slideModel->runtimeStats();
+  double slideNPBT = getStatValue(slideStats, "nPastBeforeTools");
+  double slideSlides = getStatValue(slideStats, "contextSlides");
+
+  EXPECT_GT(slideSlides, 0) << "Sliding must occur";
+
+  // Simulate per-slide discard with clamping.
+  double expectedNPBT = baselineNPBT;
+  int unclampedSlides = 0;
+  for (int i = 0; i < static_cast<int>(slideSlides); i++) {
+    double currentSafe = expectedNPBT - baselineFirstMsg;
+    if (currentSafe <= 0) break;
+    double actualDiscard = std::min(static_cast<double>(nDiscarded), currentSafe);
+    if (actualDiscard == nDiscarded) unclampedSlides++;
+    expectedNPBT -= actualDiscard;
+  }
+
+  // With a long user message and small n_discarded, most slides should
+  // be unclamped (full nDiscarded tokens discarded each time).
+  EXPECT_GE(unclampedSlides, 1)
+      << "At least 1 slide should be unclamped (full " << nDiscarded
+      << " tokens discarded)";
+
+  EXPECT_EQ(slideNPBT, expectedNPBT)
+      << "Anchor should be " << expectedNPBT
+      << " (baseline=" << baselineNPBT
+      << ", firstMsg=" << baselineFirstMsg
+      << ", slides=" << slideSlides
+      << ", nDiscarded=" << nDiscarded
+      << ", unclamped=" << unclampedSlides << ")"
+      << ", got " << slideNPBT;
+
+  // Cleanup
+  std::remove(sessionPath.c_str());
+}
