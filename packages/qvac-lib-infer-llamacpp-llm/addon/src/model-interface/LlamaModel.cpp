@@ -571,9 +571,11 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
         ADDON_ID, toString(ContextOverflow), errorMsg);
   }
 
-  if (!prompt.outputCallback || needsOutputCapture) {
+  if (!prompt.outputCallback) {
     out = oss.str();
   }
+  // Use captured output for tool call detection (even in streaming mode)
+  std::string capturedOutput = needsOutputCapture ? oss.str() : out;
   auto& dts = state_->llmContext_->dynamicToolsState();
   // Capture nPastBeforeTools before postInfer cleanup for stats reporting
   state_->lastNPastBeforeTools_ = dts.nPastBeforeTools();
@@ -581,7 +583,7 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
 
   if (dts.toolsAtEnd() && dts.nPastBeforeTools() > 0 &&
       state_->llmContext_->getNPast() > dts.nPastBeforeTools()) {
-    bool hasToolCall = out.find("<tool_call>") != std::string::npos;
+    bool hasToolCall = capturedOutput.find("<tool_call>") != std::string::npos;
     if (!hasToolCall) {
       state_->lastToolsTrimmed_ = true;
       state_->llmContext_->removeLastNTokens(
