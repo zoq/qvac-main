@@ -488,30 +488,59 @@ TEST_F(
       "humidity levels, UV index, sunrise and sunset times, and any "
       "severe weather advisories that might be in effect.";
 
-  // ── Phase 1 (baseline): large context, no generation, no sliding ──
+  // We need a session so firstMsgTokens is small (just system prompt).
+  // Without a session, firstMsgTokens = entire prefill and sliding
+  // can't affect the anchor (it's within the protected first message).
+  std::string sessionPath = "test_sliding_qwen3.bin";
+
+  // ── Phase 1: establish session cache with system prompt ──
   config_files["tools_at_end"] = "true";
-  config_files["ctx_size"] = "2048";
+  config_files["ctx_size"] = "1024";
+  config_files["n_predict"] = "0";
+  auto initModel = createModel();
+  if (!initModel) {
+    FAIL() << "Init model failed to load";
+  }
+
+  std::string initInput =
+      R"([{"role": "session", "content": ")" + sessionPath + R"("},)"
+      R"( {"role": "system", "content": "You are a helpful assistant."}])";
+  processPromptString(initModel, initInput);
+
+  // Save session
+  std::string saveCmd =
+      R"([{"role": "session", "content": ")" + sessionPath
+      + R"("}, {"role": "session", "content": "save"}])";
+  processPromptString(initModel, saveCmd);
+
+  // ── Phase 2 (baseline): load session, send user+tools, n_predict=0 ──
+  // No generation, no sliding. Records the original nPastBeforeTools.
+  config_files["ctx_size"] = "1024";
   config_files["n_predict"] = "0";
   auto baselineModel = createModel();
   if (!baselineModel) {
     FAIL() << "Baseline model failed to load";
   }
 
-  std::string baselineInput =
-      R"([{"role": "user", "content": ")" + userMsg + R"("}, )" + toolJson + R"(])";
-  processPromptString(baselineModel, baselineInput);
+  std::string turn2Input =
+      R"([{"role": "session", "content": ")" + sessionPath + R"("},)"
+      R"( {"role": "user", "content": ")" + userMsg + R"("}, )" + toolJson + R"(])";
+  processPromptString(baselineModel, turn2Input);
   auto baselineStats = baselineModel->runtimeStats();
   double baselineNPBT = getStatValue(baselineStats, "nPastBeforeTools");
   double baselineSlides = getStatValue(baselineStats, "contextSlides");
 
   EXPECT_EQ(baselineSlides, 0)
-      << "Baseline must not slide (n_predict=0 in large context)";
+      << "Baseline must not slide (n_predict=0 in 1024 context)";
   EXPECT_GT(baselineNPBT, 0)
       << "Baseline nPastBeforeTools must be set";
 
-  // ── Phase 2 (sliding): small context, fill with generation ──
+  // ── Phase 3 (sliding): load session, same input, small context ──
+  // Generation fills context → sliding fires. After sliding,
+  // nPastBeforeTools must be exactly (baseline - slides * nDiscarded).
+  constexpr int nDiscarded = 100;
   config_files["ctx_size"] = "512";
-  config_files["n_discarded"] = "100";
+  config_files["n_discarded"] = std::to_string(nDiscarded);
   config_files["n_predict"] = "-2";
   auto slideModel = createModel();
   if (!slideModel) {
@@ -519,7 +548,8 @@ TEST_F(
   }
 
   std::string slideInput =
-      R"([{"role": "user", "content": ")" + userMsg + R"("}, )" + toolJson + R"(])";
+      R"([{"role": "session", "content": ")" + sessionPath + R"("},)"
+      R"( {"role": "user", "content": ")" + userMsg + R"("}, )" + toolJson + R"(])";
   EXPECT_NO_THROW({
     std::string output = processPromptString(slideModel, slideInput);
     EXPECT_GE(output.length(), 0);
@@ -531,20 +561,44 @@ TEST_F(
   double slideTrimmed = getStatValue(slideStats, "toolsTrimmed");
 
   EXPECT_GT(slideSlides, 0)
-      << "Context sliding must occur during generation";
+      << "Context sliding must occur (if not, increase user message "
+         "length or reduce ctx_size)";
+
+  // The first slide discards min(nDiscarded, nPastBeforeTools - firstMsgTokens)
+  // tokens. With a session, firstMsgTokens is the system prompt tokens (small).
+  // Subsequent slides have a smaller safeLimit as the anchor shrinks.
+  // We use firstMsgTokens from baseline stats to compute exact expected values.
+  double baselineFirstMsg = getStatValue(baselineStats, "firstMsgTokens");
+  double safeLimit = baselineNPBT - baselineFirstMsg;
+  EXPECT_GT(safeLimit, 0)
+      << "safeLimit (nPBT - firstMsg = " << baselineNPBT << " - "
+      << baselineFirstMsg << ") must be positive";
+
+  // For each slide, the actual discard is min(nDiscarded, current safeLimit).
+  // Compute expected anchor by simulating slides.
+  double expectedNPBT = baselineNPBT;
+  for (int i = 0; i < static_cast<int>(slideSlides); i++) {
+    double currentSafe = expectedNPBT - baselineFirstMsg;
+    if (currentSafe <= 0) break;
+    double actualDiscard = std::min(static_cast<double>(nDiscarded), currentSafe);
+    expectedNPBT -= actualDiscard;
+  }
+
+  EXPECT_EQ(slideNPBT, expectedNPBT)
+      << "nPastBeforeTools should be " << expectedNPBT
+      << " (baseline=" << baselineNPBT
+      << ", firstMsg=" << baselineFirstMsg
+      << ", slides=" << slideSlides
+      << ", nDiscarded=" << nDiscarded << ")"
+      << ", got " << slideNPBT;
 
   if (slideTrimmed > 0) {
-    // Tools were trimmed. nPastBeforeTools should be less than baseline
-    // because adjustAfterSlide reduced it during sliding.
-    EXPECT_LT(slideNPBT, baselineNPBT)
-        << "After sliding + trim, nPastBeforeTools (" << slideNPBT
-        << ") must be less than baseline (" << baselineNPBT
-        << "). If equal, adjustAfterSlide is not working.";
-  } else {
-    // Tools were kept (model produced <tool_call>). The boundary
-    // should still have been adjusted, but we can't verify the trim.
-    // At minimum, nPastBeforeTools should not exceed the baseline.
-    EXPECT_LE(slideNPBT, baselineNPBT)
-        << "nPastBeforeTools should not exceed baseline after sliding";
+    // Cache should equal the adjusted anchor after trim
+    double slideCacheTokens = getStatValue(slideStats, "CacheTokens");
+    EXPECT_EQ(slideCacheTokens, slideNPBT)
+        << "CacheTokens should equal adjusted nPastBeforeTools after trim";
   }
+
+  // Cleanup session file
+  std::remove(sessionPath.c_str());
 }
