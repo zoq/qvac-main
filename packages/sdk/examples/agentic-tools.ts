@@ -192,9 +192,11 @@ function parseToolCalls(text: string): ParsedToolCall[] {
   return calls
 }
 
+/*
 function stripThinking(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim()
 }
+*/
 
 // ─── Agentic Loop ────────────────────────────────────────────────────────────
 
@@ -299,7 +301,8 @@ async function agenticTurn(
 
     if (toolCalls.length === 0) {
       // Final answer — strip thinking, cleanup history
-      const cleanAnswer = stripThinking(fullText)
+      // const cleanAnswer = stripThinking(fullText)
+      const cleanAnswer = fullText
 
       if (allToolCalls.length > 0) {
         // Remove all tool exchange messages, keep only clean answer
@@ -537,6 +540,7 @@ const scenarios: Scenario[] = [
       const result = await agenticTurn(modelId, history, [searchTool], kvCache + "-s7", 3, verbose)
       const s = result.roundStats
 
+      console.log('toolCalls', result.toolCalls)
       assert(result.toolCalls.some((tc) => JSON.stringify(tc.arguments).toLowerCase().includes("nexora")), "should search for Nexora")
       const answer = result.answer.toLowerCase()
       assert(answer.includes("elena") || answer.includes("voss"), "answer should mention Elena Voss")
@@ -606,7 +610,8 @@ const scenarios: Scenario[] = [
       if (verbose) console.log()
       const round2Stats = await round2.stats
 
-      const cleanAnswer = stripThinking(answer)
+      const cleanAnswer = answer
+      // const cleanAnswer = stripThinking(answer)
       assert(cleanAnswer.length > 0, "model should produce a response even with empty tool result")
       assert(round1Stats !== undefined, "round 1 should have stats")
       assert(round2Stats !== undefined, "round 2 should have stats")

@@ -42,6 +42,14 @@ const tools2 = [
   },
 ];
 
+const tools3 = [
+  {
+    name: "get_date",
+    description: "Get today's Date",
+    parameters: z.undefined(),
+  },
+];
+
 type ChatSesssionParam = CompletionParams & {
   tools: ToolInput[]
 }
@@ -75,8 +83,8 @@ async function chatSession ({ modelId, history, tools, kvCache }: ChatSesssionPa
   const stats: CompletionStats | undefined = await result.stats;
   const toolCalls: ToolCall[] = await result.toolCalls;
 
-  console.log("\n\n📋 Parsed Tool Calls:");
   if (toolCalls.length > 0) {
+    console.log("\n\n📋 Parsed Tool Calls:");
     for (const call of toolCalls) {
       console.log(`  - ${call.name}(${JSON.stringify(call.arguments)})`);
 
@@ -91,10 +99,15 @@ async function chatSession ({ modelId, history, tools, kvCache }: ChatSesssionPa
       }
     }
   } else {
-    console.log("  No tool calls detected in response");
+    history.push({
+      role: "assistant",
+      content: await result.text,
+    });
+    console.log("\n📊 <NO TOOL CALLS FOUND> Performance Stats:", stats);
+    return
   }
 
-  console.log("\n📊 Performance Stats:", stats);
+  console.log("\n📊 <WITH TOOLS> Performance Stats:", stats);
 
   // Execute tool calls and send results back to the model
   if (toolCalls.length > 0) {
@@ -105,7 +118,7 @@ async function chatSession ({ modelId, history, tools, kvCache }: ChatSesssionPa
       let result = "";
       if (call.name === "get_weather") {
         const args = call.arguments as { city: string; country?: string };
-        result = `The weather in ${args.city} is sunny, 22°C with light clouds.`;
+        result = `The weather in ${args.city} is rainy, 08°C with heavy clouds.`;
       } else if (call.name === "get_horoscope") {
         const args = call.arguments as { sign: string };
         result = `Horoscope for ${args.sign}: Today is a great day for new beginnings and creative endeavors!`;
@@ -139,22 +152,21 @@ async function chatSession ({ modelId, history, tools, kvCache }: ChatSesssionPa
     tools,
   });
 
-  history.push({
-    role: "assistant",
-    content: await followUpResult.text,
-  });
-
   for await (const token of followUpResult.tokenStream) {
     process.stdout.write(token);
   }
 
+  history.push({
+    role: "assistant",
+    content: await followUpResult.text,
+  });
 
   const followUpStats = await followUpResult.stats;
   console.log("\n\n📊 Follow-up Stats:", followUpStats);
 }
 
 type ToolInvocationParam = Pick<CompletionParams, 'kvCache'> & {
-  toolVariants: [ToolInput[], ToolInput[]]
+  toolVariants: [ToolInput[], ToolInput[], ToolInput[]]
 }
 async function runToolInvocationTest({ kvCache, toolVariants }: ToolInvocationParam) {
   try {
@@ -176,7 +188,7 @@ async function runToolInvocationTest({ kvCache, toolVariants }: ToolInvocationPa
     const history = [
       {
         role: "system",
-        content:"You are a helpful assistant that can use tools.",
+        content:"You are a helpful assistant that can use tools. User's cat name is Windy and dog is Butch",
       },
       {
         role: "user",
@@ -191,11 +203,36 @@ async function runToolInvocationTest({ kvCache, toolVariants }: ToolInvocationPa
 
     history.push({
       role: "user",
-      content: "only in case the weather in Tokyo is good, check my horoscope for Aquarius; if the weather is bad - check Taurus; need only one horoscope depending on the whether",
+      content: "What is my cat name?",
     })
 
-    await chatSession({ modelId, history, tools: toolVariants[1], kvCache })
+    console.log("\n🤖 AI Response:");
+    await chatSession({ modelId, history, tools: toolVariants[0], kvCache })
 
+    history.push({
+      role: "user",
+      content: "What's my dog name?",
+    })
+
+    console.log("\n🤖 AI Response:");
+    await chatSession({ modelId, history, tools: toolVariants[0], kvCache })
+
+    history.push({
+      role: "user",
+      content: "What is the weather in Tokyo?",
+    })
+    console.log("\n🤖 AI Response:");
+    await chatSession({ modelId, history, tools: toolVariants[2], kvCache })
+
+    history.push({
+      role: "user",
+      content: "only in case the weather in Tokyo is rainy, check my horoscope for Aquarius; if the weather is good - check Taurus; need only one horoscope depending on the whether",
+    })
+
+    console.log("\n🤖 AI Response:");
+    console.log("(Streaming with tool definitions in prompt)\n");
+
+    await chatSession({ modelId, history, tools: toolVariants[1], kvCache })
 
     console.log("\n\n🎉 Completed!");
     await unloadModel({ modelId, clearStorage: false });
@@ -205,4 +242,5 @@ async function runToolInvocationTest({ kvCache, toolVariants }: ToolInvocationPa
   }
 }
 // using same kvCache for a single session
-await runToolInvocationTest({ kvCache: `id-${Date.now()}`, toolVariants: [tools1, tools2] })
+// await runToolInvocationTest({ kvCache: false, toolVariants: [tools1, tools2] })
+await runToolInvocationTest({ kvCache: `id-${Date.now()}`, toolVariants: [tools1, tools2, tools3] })
