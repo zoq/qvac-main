@@ -31,6 +31,7 @@ add_executable(
   test_chat_template_utils.cpp
   test_qwen3_reasoning_utils.cpp
   test_qwen_template.cpp
+  test_qwen3_tools_dynamic_template.cpp
   test_logging_macros.cpp
   test_llama_lazy_init_backend.cpp
   test_borrow_tracked_shared_buffer.cpp
