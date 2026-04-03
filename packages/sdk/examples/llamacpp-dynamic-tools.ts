@@ -46,7 +46,7 @@ const tools3 = [
   {
     name: "get_date",
     description: "Get today's Date",
-    parameters: z.undefined(),
+    parameters: z.object(),
   },
 ];
 
@@ -104,7 +104,7 @@ async function chatSession ({ modelId, history, tools, kvCache }: ChatSesssionPa
       content: await result.text,
     });
     console.log("\n📊 <NO TOOL CALLS FOUND> Performance Stats:", stats);
-    return
+    return;
   }
 
   console.log("\n📊 <WITH TOOLS> Performance Stats:", stats);

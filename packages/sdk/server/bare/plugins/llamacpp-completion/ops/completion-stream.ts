@@ -211,7 +211,7 @@ function prepareMessagesForCache(
         }
       }
     } else if (toolsMode === ToolsModeType.dynamic) {
-      const prevMsg = history[history.length - 2]
+      const prevMsg = history[history.length - 2];
       if (prevMsg?.role === 'assistant') {
         lastMessages = [prevMsg, lastMsg];
       } else {
