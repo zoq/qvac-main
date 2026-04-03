@@ -10,6 +10,10 @@ async function runApiBehaviorTest (options = {}) { // eslint-disable-line no-unu
   return runIntegrationModule('../integration/api-behavior.test.js', options)
 }
 
+async function runGenerateImageFlux2I2iTest (options = {}) { // eslint-disable-line no-unused-vars
+  return runIntegrationModule('../integration/generate-image-flux2-i2i.test.js', options)
+}
+
 async function runGenerateImageFlux2Test (options = {}) { // eslint-disable-line no-unused-vars
   return runIntegrationModule('../integration/generate-image-flux2.test.js', options)
 }
