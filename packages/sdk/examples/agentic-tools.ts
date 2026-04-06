@@ -289,7 +289,7 @@ async function agenticTurn(
         nPastBeforeTools: stats.nPastBeforeTools ?? 0,
         tokensPerSecond: stats.tokensPerSecond ?? 0,
         timeToFirstToken: stats.timeToFirstToken ?? 0,
-        toolsTrimmed: stats.toolsTrimmed ?? false,
+        toolsTrimmed: Boolean(stats.toolsTrimmed),
       }
       roundStats.push(rs)
       const trimmed = stats.toolsTrimmed ? " toolsTrimmed=YES" : ""
