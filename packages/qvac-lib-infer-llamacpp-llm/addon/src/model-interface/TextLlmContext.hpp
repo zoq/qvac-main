@@ -20,7 +20,7 @@ public:
   // Constructor
   TextLlmContext(
       common_params& commonParams, common_init_result&& llamaInit,
-      bool toolsAtEnd = false);
+      bool toolsCompact = false);
 
   // Destructor
   ~TextLlmContext() override = default;

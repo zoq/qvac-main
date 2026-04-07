@@ -308,9 +308,9 @@ void LlamaModel::init(bool acquireLock) {
 
   common_params params;
   std::optional<int> adrenoVersion;
-  bool toolsAtEnd = false;
+  bool toolsCompact = false;
   commonParamsParse(
-      modelPath, configFilemap, params, adrenoVersion, toolsAtEnd);
+      modelPath, configFilemap, params, adrenoVersion, toolsCompact);
 
   const std::string errorWhenFailed = toString(UnableToLoadModel);
   auto streamedFiles =
@@ -337,7 +337,7 @@ void LlamaModel::init(bool acquireLock) {
       std::string(constructionArgs_.projectionPath),
       params,
       std::move(llamaInit),
-      toolsAtEnd);
+      toolsCompact);
 
   if (snap->configuredNDiscarded_ > 0 && snap->llmContext_) {
     snap->llmContext_->setNDiscarded(snap->configuredNDiscarded_);
@@ -553,7 +553,7 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
   }
 
   std::ostringstream oss;
-  bool needsOutputCapture = state_->llmContext_->dynamicToolsState().toolsAtEnd();
+  bool needsOutputCapture = state_->llmContext_->dynamicToolsState().toolsCompact();
   auto callback = prompt.outputCallback;
   if (!prompt.outputCallback) {
     callback = [&](const std::string& token) { oss << token; };
@@ -579,7 +579,7 @@ std::string LlamaModel::processPromptImpl(const Prompt& prompt) {
   state_->lastNPastBeforeTools_ = dts.nPastBeforeTools();
   state_->lastToolsTrimmed_ = false;
 
-  if (dts.toolsAtEnd() && dts.nPastBeforeTools() > 0 &&
+  if (dts.toolsCompact() && dts.nPastBeforeTools() > 0 &&
       state_->llmContext_->getNPast() > dts.nPastBeforeTools()) {
     // Check captured output for tool calls. In streaming mode oss has
     // the text; in non-streaming mode out already has it.
@@ -647,7 +647,7 @@ void LlamaModel::commonParamsParse(
     const std::string& modelPath,
     std::unordered_map<std::string, std::string>& configFilemap,
     common_params& params, std::optional<int>& outAdrenoVersion,
-    bool& outToolsAtEnd) {
+    bool& outToolsCompact) {
 
   std::vector<std::string> configVector;
 
@@ -690,23 +690,23 @@ void LlamaModel::commonParamsParse(
     configFilemap.erase(iter);
   }
 
-  // parse tools_at_end flag from config
-  if (auto iter = configFilemap.find("tools_at_end");
+  // parse tools_compact flag from config
+  if (auto iter = configFilemap.find("tools_compact");
       iter != configFilemap.end()) {
     std::string val = iter->second;
     std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-    outToolsAtEnd = (val == "true");
+    outToolsCompact = (val == "true");
     configFilemap.erase(iter);
   }
 
-  if (outToolsAtEnd) {
+  if (outToolsCompact) {
     auto arch = metadata_.tryGetString("general.architecture");
     if (!arch.has_value() || arch.value() != "qwen3") {
       QLOG_IF(
           Priority::WARNING,
-          "[LlamaModel] tools_at_end is only supported for Qwen3 models, "
+          "[LlamaModel] tools_compact is only supported for Qwen3 models, "
           "ignoring\n");
-      outToolsAtEnd = false;
+      outToolsCompact = false;
     }
   }
 
@@ -1046,14 +1046,14 @@ void LlamaModel::resetState(bool resetStats) {
 
 std::unique_ptr<LlmContext> LlamaModel::createContext(
     std::string&& projectionPath, common_params& params,
-    common_init_result&& llamaInit, bool toolsAtEnd) {
+    common_init_result&& llamaInit, bool toolsCompact) {
   if (!projectionPath.empty()) {
     params.mmproj.path = std::move(projectionPath);
     return std::make_unique<MtmdLlmContext>(
-        params, std::move(llamaInit), toolsAtEnd);
+        params, std::move(llamaInit), toolsCompact);
   }
   return std::make_unique<TextLlmContext>(
-      params, std::move(llamaInit), toolsAtEnd);
+      params, std::move(llamaInit), toolsCompact);
 }
 
 bool LlamaModel::loadMedia(const std::vector<uint8_t>& input) {

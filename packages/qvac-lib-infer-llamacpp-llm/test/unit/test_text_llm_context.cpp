@@ -378,7 +378,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizeWithoutToolsAtEnd) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "false";
+  config_files["tools_compact"] = "false";
   config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
@@ -418,7 +418,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizeWithToolsAtEndNoTools) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
@@ -462,7 +462,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
   const int numIterations = 10;
 
   {
-    config_files["tools_at_end"] = "false";
+    config_files["tools_compact"] = "false";
     config_files["tools"] = "true";
     auto model = createModel();
     if (!model) {
@@ -485,13 +485,13 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
     auto stats = model->runtimeStats();
     int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
 
-    GTEST_LOG_(INFO) << "Single tokenization (no tools_at_end): "
+    GTEST_LOG_(INFO) << "Single tokenization (no tools_compact): "
                      << durationSingle / numIterations << " us per iteration ("
                      << promptTokens << " prompt tokens)";
   }
 
   {
-    config_files["tools_at_end"] = "true";
+    config_files["tools_compact"] = "true";
     config_files["tools"] = "true";
     auto model = createModel();
     if (!model) {
@@ -515,14 +515,14 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
     int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
     int cacheTokens = static_cast<int>(getStatValue(stats, "CacheTokens"));
 
-    GTEST_LOG_(INFO) << "Double tokenization (tools_at_end=true): "
+    GTEST_LOG_(INFO) << "Double tokenization (tools_compact=true): "
                      << durationDouble / numIterations << " us per iteration ("
                      << promptTokens << " prompt tokens, " << cacheTokens
                      << " cached tokens)";
   }
 
   {
-    config_files["tools_at_end"] = "true";
+    config_files["tools_compact"] = "true";
     config_files["tools"] = "true";
     auto model = createModel();
     if (!model) {
@@ -547,7 +547,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverhead) {
     auto stats = model->runtimeStats();
     int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
 
-    GTEST_LOG_(INFO) << "Without tools (tools_at_end=true): "
+    GTEST_LOG_(INFO) << "Without tools (tools_compact=true): "
                      << durationNoTools / numIterations << " us per iteration ("
                      << promptTokens << " prompt tokens)";
   }
@@ -587,7 +587,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
   const int numIterations = 3;
 
   {
-    config_files["tools_at_end"] = "false";
+    config_files["tools_compact"] = "false";
     config_files["tools"] = "true";
     config_files["ctx_size"] = "4096";
     auto model = createModel();
@@ -611,13 +611,13 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
     auto stats = model->runtimeStats();
     int promptTokens = static_cast<int>(getStatValue(stats, "promptTokens"));
 
-    GTEST_LOG_(INFO) << "Large prompt - Single tokenization (no tools_at_end): "
+    GTEST_LOG_(INFO) << "Large prompt - Single tokenization (no tools_compact): "
                      << durationSingle / numIterations << " us per iteration ("
                      << promptTokens << " prompt tokens)";
   }
 
   {
-    config_files["tools_at_end"] = "true";
+    config_files["tools_compact"] = "true";
     config_files["tools"] = "true";
     auto model = createModel();
     if (!model) {
@@ -642,7 +642,7 @@ TEST_F(TextLlmContextTest, DoubleTokenizationTimeOverheadLargePrompt) {
     int cacheTokens = static_cast<int>(getStatValue(stats, "CacheTokens"));
 
     GTEST_LOG_(INFO)
-        << "Large prompt - Double tokenization (tools_at_end=true): "
+        << "Large prompt - Double tokenization (tools_compact=true): "
         << durationDouble / numIterations << " us per iteration ("
         << promptTokens << " prompt tokens, " << cacheTokens
         << " cached tokens)";
@@ -654,7 +654,7 @@ TEST_F(TextLlmContextTest, NPastBeforeToolsMinusOneWithoutTools) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
@@ -675,7 +675,7 @@ TEST_F(TextLlmContextTest, NPastBeforeToolsMinusOneWhenToolsAtEndFalse) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "false";
+  config_files["tools_compact"] = "false";
   config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {

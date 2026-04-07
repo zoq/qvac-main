@@ -1063,7 +1063,7 @@ TEST_F(LlamaModelTest, CommonParamsParseToolsAtEndTrue) {
   config["ctx_size"] = "2048";
   config["gpu_layers"] = test_common::getTestGpuLayers();
   config["n_predict"] = "10";
-  config["tools_at_end"] = "true";
+  config["tools_compact"] = "true";
 
   fs::path backendDir;
 #ifdef TEST_BINARY_DIR
@@ -1092,7 +1092,7 @@ TEST_F(LlamaModelTest, CommonParamsParseToolsAtEndFalse) {
   config["ctx_size"] = "2048";
   config["gpu_layers"] = test_common::getTestGpuLayers();
   config["n_predict"] = "10";
-  config["tools_at_end"] = "false";
+  config["tools_compact"] = "false";
 
   fs::path backendDir;
 #ifdef TEST_BINARY_DIR
@@ -1121,7 +1121,7 @@ TEST_F(LlamaModelTest, CommonParamsParseToolsAtEndUppercase) {
   config["ctx_size"] = "2048";
   config["gpu_layers"] = test_common::getTestGpuLayers();
   config["n_predict"] = "10";
-  config["tools_at_end"] = "TRUE";
+  config["tools_compact"] = "TRUE";
 
   fs::path backendDir;
 #ifdef TEST_BINARY_DIR

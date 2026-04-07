@@ -1,27 +1,27 @@
-# Tools at End of Prompt
+# Tools Compact
 
 ## Overview
 
-The `tools_at_end` configuration option places tool definitions at the end of the prompt (after the conversation history) instead of the default position (typically inside the system prompt). This enables KV cache optimization for multi-turn conversations with dynamic tool sets.
+The `tools_compact` configuration option places tool definitions at the end of the prompt (after the conversation history) instead of the default position (typically inside the system prompt). This enables KV cache optimization for multi-turn conversations with dynamic tool sets.
 
 ## Configuration
 
 ```js
 const config = {
   tools: 'true',
-  tools_at_end: 'true'
+  tools_compact: 'true'
 }
 ```
 
 ## Model Support
 
-Currently `tools_at_end` is only supported for **Qwen3** models. If enabled on a non-Qwen3 model, the flag is silently ignored and a warning is logged.
+Currently `tools_compact` is only supported for **Qwen3** models. If enabled on a non-Qwen3 model, the flag is silently ignored and a warning is logged.
 
 ## Usage Requirements
 
 ### Multi-turn Conversation Pattern
 
-When using `tools_at_end`, consumers must follow a specific pattern:
+When using `tools_compact`, consumers must follow a specific pattern:
 
 1. **Include prior response**: Pass the assistant's previous response (including any `<tool_call>` or `<think>` blocks) back alongside the new user message.
 
@@ -44,7 +44,7 @@ Turn 2: [response-1] + [user-q-2] + [tools-2] → [response-2]
 
 ## When to Use
 
-**Use `tools_at_end` when:**
+**Use `tools_compact` when:**
 - Long conversations with many turns (cache hit on history saves significant compute)
 - Frequent tool replacement between turns (e.g., tools A → tools B → tools A)
 

@@ -94,14 +94,14 @@ protected:
 
 TEST_F(TextLlmContextQwen3Test, DoubleTokenizeWithToolsAtEnd) {
   if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -134,14 +134,14 @@ TEST_F(TextLlmContextQwen3Test, DoubleTokenizeWithToolsAtEnd) {
 
 TEST_F(TextLlmContextQwen3Test, DoubleTokenizeWithMultipleTools) {
   if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
@@ -189,14 +189,14 @@ TEST_F(TextLlmContextQwen3Test, DoubleTokenizeWithMultipleTools) {
 
 TEST_F(TextLlmContextQwen3Test, DoubleTokenizeBoundaryAccuracy) {
   if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
@@ -247,14 +247,14 @@ TEST_F(TextLlmContextQwen3Test, DoubleTokenizeBoundaryAccuracy) {
 
 TEST_F(TextLlmContextQwen3Test, NPastBeforeToolsSetAfterEvalWithTools) {
   if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {
@@ -291,14 +291,14 @@ TEST_F(TextLlmContextQwen3Test, NPastBeforeToolsSetAfterEvalWithTools) {
 
 TEST_F(TextLlmContextQwen3Test, NPastBeforeToolsResetAfterResetState) {
   if (!isQwen3Model()) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   config_files["tools"] = "true";
   auto model = createModel();
   if (!model) {

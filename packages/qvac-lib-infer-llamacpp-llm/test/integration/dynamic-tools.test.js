@@ -28,7 +28,7 @@ const BASE_CONFIG = {
   seed: '1',
   verbosity: '2',
   tools: 'true',
-  tools_at_end: 'true'
+  tools_compact: 'true'
 }
 
 const TOOL_A = {

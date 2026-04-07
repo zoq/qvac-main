@@ -1036,7 +1036,7 @@ TEST_F(CacheManagementTest, CacheWithToolsAtEndFalseSavesFullCache) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "false";
+  config_files["tools_compact"] = "false";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";

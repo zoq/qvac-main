@@ -20,7 +20,7 @@ public:
    */
   MtmdLlmContext(
       common_params& commonParams, common_init_result&& llamaInit,
-      bool toolsAtEnd = false);
+      bool toolsCompact = false);
 
   /**
    * The destructor.

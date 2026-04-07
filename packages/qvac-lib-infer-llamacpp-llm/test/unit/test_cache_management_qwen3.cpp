@@ -115,14 +115,14 @@ protected:
 
 TEST_F(CacheManagementQwen3Test, CacheWithToolsAtEndTrueTrimsToolTokens) {
   if (!isQwen3ModelPath(test_model_path)) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -155,14 +155,14 @@ TEST_F(CacheManagementQwen3Test, CacheWithToolsAtEndTrueTrimsToolTokens) {
 
 TEST_F(CacheManagementQwen3Test, CacheReloadWithToolsAtEndTrue) {
   if (!isQwen3ModelPath(test_model_path)) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   auto model1 = createModel();
   if (!model1) {
     FAIL() << "Model failed to load";
@@ -212,14 +212,14 @@ TEST_F(CacheManagementQwen3Test, CacheReloadWithToolsAtEndTrue) {
 
 TEST_F(CacheManagementQwen3Test, CacheWithoutToolsWithToolsAtEndTrue) {
   if (!isQwen3ModelPath(test_model_path)) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -252,14 +252,14 @@ TEST_F(CacheManagementQwen3Test, CacheWithoutToolsWithToolsAtEndTrue) {
 
 TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeWithMultiplePrompts) {
   if (!isQwen3ModelPath(test_model_path)) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -354,14 +354,14 @@ TEST_F(
     CacheManagementQwen3Test,
     CacheToolsAtEndModeTrimOnlyWhenNPastBeforeToolsPositive) {
   if (!isQwen3ModelPath(test_model_path)) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -396,14 +396,14 @@ TEST_F(
 
 TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeRestoresNPastBeforeTools) {
   if (!isQwen3ModelPath(test_model_path)) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
     FAIL() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
@@ -446,7 +446,7 @@ TEST_F(CacheManagementQwen3Test, CacheToolsAtEndModeRestoresNPastBeforeTools) {
   EXPECT_EQ(nPastBeforeTools2, -1);
 }
 
-// Regression test: context sliding during generation with tools_at_end
+// Regression test: context sliding during generation with tools_compact
 // must adjust nPastBeforeTools so the post-generation trim does not leave
 // stale tool tokens in the KV cache.
 //
@@ -463,7 +463,7 @@ TEST_F(
     CacheManagementQwen3Test,
     CacheToolsAtEndSlidingDuringGenDoesNotLeakToolTokens) {
   if (!isQwen3ModelPath(test_model_path)) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
@@ -494,7 +494,7 @@ TEST_F(
   std::string sessionPath = "test_sliding_qwen3.bin";
 
   // ── Phase 1: establish session cache with system prompt ──
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   config_files["ctx_size"] = "1024";
   config_files["n_predict"] = "0";
   auto initModel = createModel();
@@ -612,7 +612,7 @@ TEST_F(
     CacheManagementQwen3Test,
     CacheToolsAtEndSlidingUnclampedFullDiscard) {
   if (!isQwen3ModelPath(test_model_path)) {
-    GTEST_SKIP() << "Test requires Qwen3 model for tools_at_end feature";
+    GTEST_SKIP() << "Test requires Qwen3 model for tools_compact feature";
   }
 
   if (!hasValidModel()) {
@@ -655,7 +655,7 @@ TEST_F(
   std::string sessionPath = "test_sliding_unclamped_qwen3.bin";
 
   // ── Phase 1: establish session ──
-  config_files["tools_at_end"] = "true";
+  config_files["tools_compact"] = "true";
   config_files["ctx_size"] = "2048";
   config_files["n_predict"] = "0";
   auto initModel = createModel();

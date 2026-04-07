@@ -60,13 +60,13 @@ bool isQwen3Model(const ::llama_model* model) {
 
 std::string getChatTemplateForModel(
     const ::llama_model* model, const std::string& manualOverride,
-    bool toolsAtEnd) {
+    bool toolsCompact) {
   if (!manualOverride.empty()) {
     return manualOverride;
   }
 
   if (isQwen3Model(model)) {
-    return toolsAtEnd ? getToolsDynamicQwen3Template()
+    return toolsCompact ? getToolsDynamicQwen3Template()
                       : getFixedQwen3Template();
   }
 
@@ -74,12 +74,12 @@ std::string getChatTemplateForModel(
 }
 
 std::string getChatTemplate(
-    const ::llama_model* model, const common_params& params, bool toolsAtEnd) {
+    const ::llama_model* model, const common_params& params, bool toolsCompact) {
   // Use fixed Qwen3 template if model is Qwen3 and Jinja is enabled
   std::string chatTemplate = params.chat_template;
   if (params.use_jinja) {
     chatTemplate =
-        getChatTemplateForModel(model, params.chat_template, toolsAtEnd);
+        getChatTemplateForModel(model, params.chat_template, toolsCompact);
     if (!chatTemplate.empty() && chatTemplate != params.chat_template) {
       QLOG_IF(
           Priority::INFO, "[ChatTemplateUtils] Using fixed Qwen3 template\n");

@@ -4,9 +4,9 @@
 
 ### Fixed
 
-#### Context sliding with `tools_at_end` could corrupt tool boundary tracking
+#### Context sliding with `tools_compact` could corrupt tool boundary tracking
 
-When context sliding (token discard) occurred during generation or prefill with `tools_at_end` enabled, the `nPastBeforeTools` boundary was not adjusted. This caused the post-generation trim to use a stale boundary, leaving tool tokens in the KV cache across turns.
+When context sliding (token discard) occurred during generation or prefill with `tools_compact` enabled, the `nPastBeforeTools` boundary was not adjusted. This caused the post-generation trim to use a stale boundary, leaving tool tokens in the KV cache across turns.
 
 **The bug**: The sliding window removes N tokens from the middle of the KV cache and shifts everything after them left. But `nPastBeforeTools` (which marks where conversation ends and tools begin) was not shifted, so it pointed past the actual boundary.
 
@@ -34,9 +34,9 @@ When context sliding (token discard) occurred during generation or prefill with 
 
 ### Added
 
-#### `tools_at_end` configuration for dynamic tool management in multi-turn conversations
+#### `tools_compact` configuration for dynamic tool management in multi-turn conversations
 
-New `tools_at_end` configuration option (`"true"` or `"false"`, default: `"false"`) places tool definitions at the end of the prompt (after conversation history) instead of in the system prompt. This enables KV cache optimization for multi-turn conversations with dynamic tool sets, where tools change between turns. Currently supports Qwen3 models only.
+New `tools_compact` configuration option (`"true"` or `"false"`, default: `"false"`) places tool definitions at the end of the prompt (after conversation history) instead of in the system prompt. This enables KV cache optimization for multi-turn conversations with dynamic tool sets, where tools change between turns. Currently supports Qwen3 models only.
 
 - **KV cache trimming**: After each turn, tools are automatically removed from the KV cache, preventing stale tool definitions from accumulating
 - **Conversation history reuse**: History tokens are preserved in cache, saving recomputation on long conversations

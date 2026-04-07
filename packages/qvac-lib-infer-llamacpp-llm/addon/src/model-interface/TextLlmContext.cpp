@@ -25,9 +25,9 @@ using namespace qvac_lib_inference_addon_llama::utils;
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TextLlmContext::TextLlmContext(
     common_params& commonParams, common_init_result&& llamaInit,
-    bool toolsAtEnd)
+    bool toolsCompact)
     : llamaInit_(std::move(llamaInit)), params_(commonParams) {
-  dynamicToolsState().setToolsAtEnd(toolsAtEnd);
+  dynamicToolsState().setToolsCompact(toolsCompact);
   {
 
     model_ = llamaInit_.model.get();
@@ -53,7 +53,7 @@ TextLlmContext::TextLlmContext(
     }
 
     std::string chatTemplate =
-        getChatTemplate(model_, params_, dynamicToolsState().toolsAtEnd());
+        getChatTemplate(model_, params_, dynamicToolsState().toolsCompact());
     tmpls_ = common_chat_templates_init(model_, chatTemplate);
 
     smpl_.reset(common_sampler_init(model_, params_.sampling));
@@ -229,7 +229,7 @@ void TextLlmContext::tokenizeChat(
   if (!prompt.empty()) {
     inputTokens = common_tokenize(lctx_, prompt, addSpecial, true);
 
-    if (dynamicToolsState().toolsAtEnd() && !tools.empty()) {
+    if (dynamicToolsState().toolsCompact() && !tools.empty()) {
       inputs.tools = {};
       inputs.add_generation_prompt = false;
       inputs.use_jinja = params_.use_jinja;
@@ -336,7 +336,7 @@ bool TextLlmContext::evalMessageWithTools(
       auto* mem = llama_get_memory(lctx_);
       llama_memory_seq_rm(mem, 0, firstMsgTokens_, nPast_);
       nPast_ = firstMsgTokens_;
-      if (dts.toolsAtEnd()) {
+      if (dts.toolsCompact()) {
         dts.reset();
       }
       ++nSlides_;

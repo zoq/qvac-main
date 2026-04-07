@@ -113,12 +113,12 @@ using ThreadPoolPtr = std::unique_ptr<ggml_threadpool, ThreadPoolDeleter>;
 
 class DynamicToolsState {
 public:
-  void setToolsAtEnd(bool v) { toolsAtEnd_ = v; }
-  [[nodiscard]] bool toolsAtEnd() const { return toolsAtEnd_; }
+  void setToolsCompact(bool v) { toolsCompact_ = v; }
+  [[nodiscard]] bool toolsCompact() const { return toolsCompact_; }
   [[nodiscard]] llama_pos nPastBeforeTools() const { return nPastBeforeTools_; }
   void setNPastBeforeTools(llama_pos pos) { nPastBeforeTools_ = pos; }
   void recordToolBoundary(llama_pos nPast, llama_pos totalTokens) {
-    if (toolsAtEnd_ && nConversationOnlyTokens_ > 0 &&
+    if (toolsCompact_ && nConversationOnlyTokens_ > 0 &&
         nPastBeforeTools_ == -1) {
       // Only set anchor on first round — preserve position during chain
       nPastBeforeTools_ = nPast - (totalTokens - nConversationOnlyTokens_);
@@ -134,10 +134,10 @@ public:
   }
 
   // Clamp a discard amount so it never eats into the tool region.
-  // Returns the original value unchanged when tools_at_end is off.
+  // Returns the original value unchanged when tools_compact is off.
   [[nodiscard]] llama_pos clampDiscard(
       llama_pos nDiscarded, llama_pos firstMsgTokens) const {
-    if (toolsAtEnd_ && nPastBeforeTools_ > firstMsgTokens) {
+    if (toolsCompact_ && nPastBeforeTools_ > firstMsgTokens) {
       llama_pos safeLimit = nPastBeforeTools_ - firstMsgTokens;
       return std::min(nDiscarded, safeLimit);
     }
@@ -145,15 +145,15 @@ public:
   }
 
   // Shift nPastBeforeTools left after a context slide so the trim
-  // boundary stays accurate. No-op when tools_at_end is off.
+  // boundary stays accurate. No-op when tools_compact is off.
   void adjustAfterSlide(llama_pos discard, llama_pos firstMsgTokens) {
-    if (toolsAtEnd_ && nPastBeforeTools_ > firstMsgTokens) {
+    if (toolsCompact_ && nPastBeforeTools_ > firstMsgTokens) {
       nPastBeforeTools_ -= discard;
     }
   }
 
 private:
-  bool toolsAtEnd_ = false;
+  bool toolsCompact_ = false;
   llama_pos nConversationOnlyTokens_ = 0;
   llama_pos nPastBeforeTools_ = -1;
 };

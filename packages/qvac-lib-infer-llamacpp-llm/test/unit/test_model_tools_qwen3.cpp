@@ -55,7 +55,7 @@ protected:
     config_files["gpu_layers"] = test_common::getTestGpuLayers();
     config_files["n_predict"] = "10";
     config_files["tools"] = "true";
-    config_files["tools_at_end"] = "true";
+    config_files["tools_compact"] = "true";
 
     // test_model_path = test_common::BaseTestModelPath::get();
     test_model_path = test_common::BaseTestModelPath::get(
@@ -169,13 +169,13 @@ TEST_F(ModelToolsQwen3Test, CacheEnabledWithToolMessageToolsAtEndFalse) {
     GTEST_SKIP() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "false";
+  config_files["tools_compact"] = "false";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";
   }
 
-  const std::string session_file = "test_tool_cache_no_tools_at_end.bin";
+  const std::string session_file = "test_tool_cache_no_tools_compact.bin";
 
   if (fs::exists(session_file)) {
     fs::remove(session_file);
@@ -228,7 +228,7 @@ TEST_F(ModelToolsQwen3Test, MultiTurnWithToolsAndCache) {
     GTEST_SKIP() << "Test model not found";
   }
 
-  config_files["tools_at_end"] = "false";
+  config_files["tools_compact"] = "false";
   auto model = createModel();
   if (!model) {
     FAIL() << "Model failed to load";

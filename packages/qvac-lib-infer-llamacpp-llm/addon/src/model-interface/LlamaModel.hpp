@@ -245,7 +245,7 @@ private:
       const std::string& modelPath,
       std::unordered_map<std::string, std::string>& configFilemap,
       common_params& params, std::optional<int>& outAdrenoVersion,
-      bool& outToolsAtEnd);
+      bool& outToolsCompact);
 
   /**
    * The Format prompt method. It formats the prompt json to chat messages.
@@ -258,7 +258,7 @@ private:
   void resetState(bool resetStats = true);
   std::unique_ptr<LlmContext> createContext(
       std::string&& projectionPath, common_params& params,
-      common_init_result&& llamaInit, bool toolsAtEnd);
+      common_init_result&& llamaInit, bool toolsCompact);
 
   bool loadMedia(const std::vector<uint8_t>& input);
 

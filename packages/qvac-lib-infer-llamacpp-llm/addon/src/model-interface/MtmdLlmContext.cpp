@@ -22,10 +22,10 @@ using namespace qvac_lib_inference_addon_llama::utils;
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 MtmdLlmContext::MtmdLlmContext(
     common_params& commonParams, common_init_result&& llamaInit,
-    bool toolsAtEnd)
+    bool toolsCompact)
     : llamaInit_(std::move(llamaInit)), params_(commonParams),
       model_(llamaInit_.model.get()), lctx_(llamaInit_.context.get()) {
-  dynamicToolsState().setToolsAtEnd(toolsAtEnd);
+  dynamicToolsState().setToolsCompact(toolsCompact);
 
   if (model_ == nullptr) {
     throw qvac_errors::StatusError(
@@ -44,7 +44,7 @@ MtmdLlmContext::MtmdLlmContext(
   vocab_ = llama_model_get_vocab(model_);
 
   std::string chatTemplate =
-      getChatTemplate(model_, params_, dynamicToolsState().toolsAtEnd());
+      getChatTemplate(model_, params_, dynamicToolsState().toolsCompact());
   tmpls_ = common_chat_templates_init(model_, chatTemplate);
 
   smpl_.reset(common_sampler_init(model_, params_.sampling));
@@ -206,7 +206,7 @@ void MtmdLlmContext::tokenizeChat(
     throw qvac_errors::StatusError(ADDON_ID, toString(EncoderFailed), errorMsg);
   }
 
-  if (dynamicToolsState().toolsAtEnd() && !tools.empty()) {
+  if (dynamicToolsState().toolsCompact() && !tools.empty()) {
     inputs.tools = {};
     inputs.add_generation_prompt = false;
     inputs.use_jinja = params_.use_jinja;
@@ -299,7 +299,7 @@ bool MtmdLlmContext::evalMessageWithTools(
       auto* mem = llama_get_memory(lctx_);
       llama_memory_seq_rm(mem, 0, firstMsgTokens_, nPast_);
       nPast_ = firstMsgTokens_;
-      if (dts.toolsAtEnd()) {
+      if (dts.toolsCompact()) {
         dts.reset();
       }
       ++nSlides_;
