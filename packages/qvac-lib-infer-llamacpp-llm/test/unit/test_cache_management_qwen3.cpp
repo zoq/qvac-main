@@ -476,7 +476,6 @@ TEST_F(
       R"( "description": "Get weather forecast for a city",)"
       R"( "parameters": {"type": "object", "properties": {)"
       R"("city": {"type": "string", "description": "City name"},)"
-      R"("country": {"type": "string", "description": "Country code"},)"
       R"("units": {"type": "string", "description": "Units metric or imperial"})"
       R"(}, "required": ["city"]}})";
 
@@ -540,7 +539,7 @@ TEST_F(
   // Generation fills context → sliding fires. After sliding,
   // nPastBeforeTools must be exactly (baseline - slides * nDiscarded).
   constexpr int nDiscarded = 100;
-  config_files["ctx_size"] = "512";
+  config_files["ctx_size"] = "256";
   config_files["n_discarded"] = std::to_string(nDiscarded);
   config_files["n_predict"] = "-2";
   auto slideModel = createModel();
