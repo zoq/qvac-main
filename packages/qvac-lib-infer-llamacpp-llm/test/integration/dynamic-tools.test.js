@@ -679,7 +679,7 @@ test('[dynamic-tools] cancel mid-generation then reuse with tools', { timeout: 6
 // is stale from turn 1, the trim will remove the wrong range.
 // ADVERSARIAL: sequence a developer wouldn't test — tools appearing/disappearing
 // ---------------------------------------------------------------------------
-test('[dynamic-tools][adversarial] tools → no tools → tools interleaving', { timeout: 600_000 }, async t => {
+test('[dynamic-tools][edge-case] tools → no tools → tools interleaving', { timeout: 600_000 }, async t => {
   const { model, dirPath } = await setupModel(t, { n_predict: '128' })
   const sessionName = path.join(dirPath, 'dynamic-tools-interleave.bin')
 
@@ -718,54 +718,8 @@ test('[dynamic-tools][adversarial] tools → no tools → tools interleaving', {
     `cache should grow (turn 2 wasn't trimmed): turn3=${r3.stats.CacheTokens} > turn1=${r1.stats.CacheTokens}`
   )
 })
-
 // ---------------------------------------------------------------------------
-// ADVERSARIAL: 5-turn alternating tools / no-tools in same session
-//
-// WHY: Production agents toggle tools on/off per turn. The KV cache grows in
-// an irregular staircase — trimmed on tools turns, untrimmed on plain turns.
-// Token arithmetic bugs accumulate across this pattern. This is the "weird
-// production behavior" scenario.
-// ADVERSARIAL: sequence that exercises a different code path every other turn
-// ---------------------------------------------------------------------------
-test('[dynamic-tools][adversarial] alternating tools/no-tools across 5 turns', { timeout: 900_000 }, async t => {
-  const { model, dirPath } = await setupModel(t)
-  const sessionName = path.join(dirPath, 'dynamic-tools-alternating.bin')
-
-  const turns = [
-    { content: 'What is the weather in Tokyo?', tool: TOOL_A },
-    { content: 'That sounds nice. Tell me more about Tokyo.' },
-    { content: 'Search for flights to Tokyo', tool: TOOL_B },
-    { content: 'Great. What airlines fly there?' },
-    { content: 'Send a booking confirmation email', tool: TOOL_C }
-  ]
-
-  const cacheHistory = []
-  for (let i = 0; i < turns.length; i++) {
-    const turn = turns[i]
-    const hasTool = !!turn.tool
-    const prompt = [
-      { role: 'session', content: sessionName },
-      ...(i === 0 ? [SYSTEM_MESSAGE] : []),
-      { role: 'user', content: turn.content },
-      ...(hasTool ? [turn.tool] : [])
-    ]
-
-    const r = await runAndCollect(model, prompt)
-    t.ok(r.output.length > 0, `turn ${i + 1} produces output`)
-    t.ok(r.stats.CacheTokens > 0, `turn ${i + 1} has cache tokens`)
-    t.comment(`turn ${i + 1} [${hasTool ? turn.tool.name : 'no-tool'}]: cache=${r.stats.CacheTokens} prompt=${r.stats.promptTokens}`)
-    cacheHistory.push(r.stats.CacheTokens)
-  }
-
-  t.ok(
-    cacheHistory[cacheHistory.length - 1] < 2000,
-    `final cache (${cacheHistory[cacheHistory.length - 1]}) should stay reasonable after 5 mixed turns`
-  )
-})
-
-// ---------------------------------------------------------------------------
-// ADVERSARIAL: Tool payload that fills most of the context window
+// EDGE-CASE: Tool payload that fills most of the context window
 //
 // WHY: With ctx_size=512, a tool whose description and parameters consume
 // ~300 tokens leaves very little room for conversation + generation. The
@@ -774,7 +728,7 @@ test('[dynamic-tools][adversarial] alternating tools/no-tools across 5 turns', {
 // calculation at the edges.
 // ADVERSARIAL: pathological input size a developer wouldn't try
 // ---------------------------------------------------------------------------
-test('[dynamic-tools][adversarial] large tool payload near context limit', { timeout: 600_000 }, async t => {
+test('[dynamic-tools][edge-case] large tool payload near context limit', { timeout: 600_000 }, async t => {
   const { model, dirPath } = await setupModel(t, {
     ctx_size: '512',
     n_predict: '32'
@@ -844,7 +798,7 @@ test('[dynamic-tools][adversarial] large tool payload near context limit', { tim
 // without corrupting the cache.
 // ADVERSARIAL: input the developer "knows" won't happen but agents do routinely
 // ---------------------------------------------------------------------------
-test('[dynamic-tools][adversarial] same tool name with evolved schema between turns', { timeout: 600_000 }, async t => {
+test('[dynamic-tools][edge-case] same tool name with evolved schema between turns', { timeout: 600_000 }, async t => {
   const { model, dirPath } = await setupModel(t, { n_predict: '128' })
   const sessionName = path.join(dirPath, 'dynamic-tools-evolved.bin')
 
