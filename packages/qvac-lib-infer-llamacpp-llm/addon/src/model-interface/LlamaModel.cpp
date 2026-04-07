@@ -628,7 +628,12 @@ qvac_lib_inference_addon_cpp::RuntimeStats LlamaModel::runtimeStats() const {
       {"CacheTokens", state_->llmContext_->getNPast()},
       {"generatedTokens", generatedTokens},
       {"promptTokens", promptTokens},
-      {"contextSlides", static_cast<int64_t>(contextSlides)}};
+      {"contextSlides", static_cast<int64_t>(contextSlides)}},
+      {"nPastBeforeTools",
+       static_cast<int64_t>(state_->lastNPastBeforeTools_)},
+      {"firstMsgTokens",
+       static_cast<int64_t>(state_->llmContext_->getFirstMsgTokens())},
+      {"toolsTrimmed", state_->lastToolsTrimmed_ ? 1LL : 0LL}};
 }
 
 qvac_lib_inference_addon_cpp::RuntimeStats LlamaModel::runtimeDebugStats()
