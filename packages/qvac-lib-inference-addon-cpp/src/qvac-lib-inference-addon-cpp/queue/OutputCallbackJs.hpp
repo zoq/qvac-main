@@ -41,6 +41,8 @@ public:
     });
     outputHandlers_.add(
         std::make_shared<out_handl::JsRuntimeStatsOutputHandler>());
+    outputHandlers_.add(
+        std::make_shared<out_handl::JsRuntimeDebugStatsOutputHandler>());
     outputHandlers_.add(std::make_shared<out_handl::JsLogMsgOutputHandler>());
     outputHandlers_.add(std::make_shared<out_handl::JsErrorOutputHandler>());
   }

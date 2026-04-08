@@ -319,6 +319,10 @@ class BaseInference {
       if (this.opts?.stats) {
         response.updateStats(data.stats)
       }
+    } else if (event === 'DebugStats') {
+      if (this.opts?.stats) {
+        response.updateDebugStats(data)
+      }
     } else if (event === 'JobEnded') {
       this.logger.info(`Job ${jobId} completed. Stats: ${JSON.stringify(data)}`)
       const isFinetuneTerminal = data && typeof data === 'object' && data.op === 'finetune' && typeof data.status === 'string'

@@ -278,6 +278,9 @@ class LlmLlamacpp extends BaseInference {
   }
 
   _addonOutputCallback (addon, event, data, error) {
+    if (typeof data === 'object' && data !== null && 'nPastBeforeTools' in data) {
+      return this._outputCallback(addon, 'DebugStats', 'OnlyOneJob', data, null)
+    }
     if (typeof data === 'object' && data !== null && 'TPS' in data) {
       if (this._skipNextRuntimeStats) {
         this._skipNextRuntimeStats = false

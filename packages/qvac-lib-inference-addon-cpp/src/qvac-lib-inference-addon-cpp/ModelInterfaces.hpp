@@ -40,4 +40,11 @@ struct IModelCancel {
   virtual void cancel() const = 0;
 };
 
+struct IModelDebugStats {
+  virtual ~IModelDebugStats() = default;
+  IModelDebugStats() = default;
+  IModelDebugStats(const IModelDebugStats&) = delete;
+  IModelDebugStats& operator=(const IModelDebugStats&) = delete;
+  [[nodiscard]] virtual RuntimeDebugStats runtimeDebugStats() const = 0;
+};
 } // namespace qvac_lib_inference_addon_cpp::model

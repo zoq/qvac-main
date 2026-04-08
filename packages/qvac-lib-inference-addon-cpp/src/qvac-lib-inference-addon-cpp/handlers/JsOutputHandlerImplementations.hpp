@@ -116,6 +116,25 @@ struct JsRuntimeStatsOutputHandler : JsBaseOutputHandler<RuntimeStats> {
             }) {}
 };
 
+/// @brief Handler for RuntimeDebugStats that converts to JavaScript object
+struct JsRuntimeDebugStatsOutputHandler
+    : JsBaseOutputHandler<RuntimeDebugStats> {
+  JsRuntimeDebugStatsOutputHandler()
+      : JsBaseOutputHandler<RuntimeDebugStats>(
+            [this](const RuntimeDebugStats& wrapper) -> js_value_t* {
+              js::Object debugStats = js::Object::create(this->env_);
+              for (const auto& p : wrapper.stats) {
+                visit(
+                    [env = this->env_, &debugStats, &p](auto&& val) {
+                      debugStats.setProperty(
+                          env, p.first.c_str(), js::Number::create(env, val));
+                    },
+                    p.second);
+              }
+              return debugStats;
+            }) {}
+};
+
 /// @brief Handler for Output::LogMsg that puts message in output data position
 struct JsLogMsgOutputHandler : JsBaseOutputHandler<Output::LogMsg> {
   JsLogMsgOutputHandler()

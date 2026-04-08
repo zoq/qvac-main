@@ -147,6 +147,15 @@ class QvacResponse extends EventEmitter {
   }
 
   /**
+   * Updates the response debug statistics and emits a 'debugStats' event.
+   * @param {*} debugStats - Debug statistics data.
+   */
+  updateDebugStats (debugStats) {
+    this.debugStats = debugStats
+    this.emit('debugStats', debugStats)
+  }
+
+  /**
    * Marks the response as failed, emits an 'error' event, and rejects the finish promise.
    * @param {Error} error - The error that caused the failure.
    */

@@ -61,7 +61,7 @@ struct FinetuneConfigOverrides {
   bool flashAttn{false};
 };
 
-class LlamaModel : public IModel, public IModelAsyncLoad, public IModelCancel {
+class LlamaModel : public IModel, public IModelAsyncLoad, public IModelCancel, public IModelDebugStats {
 public:
   LlamaModel(const LlamaModel&) = delete;
   LlamaModel& operator=(const LlamaModel&) = delete;
@@ -180,7 +180,7 @@ public:
   common_params& getCommonParams();
 
   qvac_lib_inference_addon_cpp::RuntimeStats runtimeStats() const final;
-  qvac_lib_inference_addon_cpp::RuntimeStats runtimeDebugStats() const;
+  qvac_lib_inference_addon_cpp::RuntimeDebugStats runtimeDebugStats() const final;
   static void
   llamaLogCallback(ggml_log_level level, const char* text, void* userData);
 

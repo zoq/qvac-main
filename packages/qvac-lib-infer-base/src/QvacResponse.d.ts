@@ -39,6 +39,8 @@ declare class QvacResponse<Output = any> extends EventEmitter {
 
   updateOutput(output: Output): void
   updateStats(stats: any): void
+  debugStats: any
+  updateDebugStats(debugStats: any): void
   failed(error: Error): void
   ended(result?: Output[] | any): void
   getLatest(): Output

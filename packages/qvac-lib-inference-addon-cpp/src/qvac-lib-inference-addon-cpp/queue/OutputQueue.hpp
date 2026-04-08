@@ -53,7 +53,12 @@ public:
     return result;
   }
 
-  void queueJobEnded() { return queueOutput(model_.runtimeStats()); }
+  void queueJobEnded() {
+    if (auto* dbg = dynamic_cast<const model::IModelDebugStats*>(&model_)) {
+      queueOutput(dbg->runtimeDebugStats());
+    }
+    queueOutput(model_.runtimeStats());
+  }
 
   void queueResult(std::any&& output) {
     QLOG_DEBUG(

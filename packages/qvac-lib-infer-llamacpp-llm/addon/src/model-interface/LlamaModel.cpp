@@ -636,15 +636,14 @@ qvac_lib_inference_addon_cpp::RuntimeStats LlamaModel::runtimeStats() const {
       {"toolsTrimmed", state_->lastToolsTrimmed_ ? 1LL : 0LL}};
 }
 
-qvac_lib_inference_addon_cpp::RuntimeStats LlamaModel::runtimeDebugStats()
+qvac_lib_inference_addon_cpp::RuntimeDebugStats LlamaModel::runtimeDebugStats()
     const {
   std::shared_lock lock(stateMtx_);
-  return {
-      {"nPastBeforeTools",
-       static_cast<int64_t>(state_->lastNPastBeforeTools_)},
-      {"firstMsgTokens",
-       static_cast<int64_t>(state_->llmContext_->getFirstMsgTokens())},
-      {"toolsTrimmed", state_->lastToolsTrimmed_ ? 1LL : 0LL}};
+  return {{{"nPastBeforeTools",
+            static_cast<int64_t>(state_->lastNPastBeforeTools_)},
+           {"firstMsgTokens",
+            static_cast<int64_t>(state_->llmContext_->getFirstMsgTokens())},
+           {"toolsTrimmed", state_->lastToolsTrimmed_ ? 1LL : 0LL}}};
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static,readability-function-cognitive-complexity)
