@@ -18,6 +18,10 @@ async function runGenerateImageFlux2Test (options = {}) { // eslint-disable-line
   return runIntegrationModule('../integration/generate-image-flux2.test.js', options)
 }
 
+async function runGenerateImageSd3I2iTest (options = {}) { // eslint-disable-line no-unused-vars
+  return runIntegrationModule('../integration/generate-image-sd3-i2i.test.js', options)
+}
+
 async function runGenerateImageSd3Test (options = {}) { // eslint-disable-line no-unused-vars
   return runIntegrationModule('../integration/generate-image-sd3.test.js', options)
 }

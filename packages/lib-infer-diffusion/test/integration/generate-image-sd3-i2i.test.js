@@ -28,7 +28,7 @@ const SD3_MODEL = {
   url: 'https://huggingface.co/adamo1139/stable-diffusion-3-medium-ungated/resolve/main/sd3_medium_incl_clips.safetensors'
 }
 
-const STEPS = 40
+const STEPS = 20
 const CFG_SCALE = 3.5
 const STRENGTH = 0.75
 const SEED = 3
@@ -60,6 +60,7 @@ test('SD3 Medium img2img — transforms an input image', { timeout: 1800000, ski
     {
       threads: 4,
       device: useCpu ? 'cpu' : 'gpu',
+      vae_on_cpu: true,
       prediction: 'flow',
       flow_shift: '3.0'
     }
@@ -129,12 +130,16 @@ test('SD3 Medium img2img — transforms an input image', { timeout: 1800000, ski
 
     t.is(images.length, 1, 'Received exactly 1 image')
 
+    if (images.length === 0) {
+      t.fail('No image received — generation may have failed (check GPU memory)')
+      return
+    }
+
     const img = images[0]
     t.ok(img instanceof Uint8Array, 'Image is a Uint8Array')
     t.ok(img.length > 1000, `Image has meaningful size (${img.length} bytes)`)
     t.ok(isPng(img), 'Image has valid PNG magic bytes')
 
-    // Saved to modelDir so mobile has write permission to the same path
     const outPath = path.join(modelDir, 'generate-image--sd3-i2i-seed3.png')
     fs.writeFileSync(outPath, img)
     console.log(`\nSaved → ${outPath}`)
