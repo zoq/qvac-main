@@ -21,9 +21,6 @@ export const metadata: Metadata = {
   icons: {
     icon: '/qvac-favicon.svg',
   },
-  other: {
-    'og:logo': '/qvac-logo.svg',
-  },
 };
 
 const gtmId = process.env.NEXT_PUBLIC_GTM_ID ?? 'GTM-WDD9NCZ4';
@@ -34,6 +31,9 @@ export default function Layout({ children }: LayoutProps<'/'>) {
       lang="en" 
       suppressHydrationWarning
       className={inter.className}>
+      <head>
+        <meta property="og:logo" content={`${DOCS_SITE_ORIGIN}/qvac-logo.svg`} />
+      </head>
       {gtmId && <GoogleTagManager gtmId={gtmId} />}
       <body className="flex flex-col min-h-screen">
         <InkeepScript />
