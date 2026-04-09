@@ -174,7 +174,7 @@ class ONNXTTS {
       : (platform() === 'ios' || platform() === 'android')
 
     const outputSampleRate = this._config.outputSampleRate
-    if (outputSampleRate != null && outputSampleRate > 0 && (outputSampleRate < 8000 || outputSampleRate > 192000)) {
+    if (outputSampleRate != null && (outputSampleRate < 8000 || outputSampleRate > 192000)) {
       throw new Error('outputSampleRate must be between 8000 and 192000, got ' + outputSampleRate)
     }
     this._outputSampleRate = outputSampleRate || null
@@ -190,7 +190,6 @@ class ONNXTTS {
         denoiserPath: enhancer.denoiserPath || null
       }
     }
-
 
     if (this._engineType === ENGINE_CHATTERBOX) {
       const root = normalizedFiles.modelDir
@@ -409,7 +408,6 @@ class ONNXTTS {
     return path.resolve(filePath)
   }
 
-
   async unload () {
     await this.cancel()
     this._failAndClearActiveResponse('Model was unloaded')
@@ -451,7 +449,7 @@ class ONNXTTS {
         }
       }
 
-      accepted = await this.addon.runJob(jobData)
+      await this.addon.runJob(jobData)
     } catch (error) {
       this._job.fail(error)
       throw error
@@ -534,7 +532,6 @@ class ONNXTTS {
       if (newConfig.enhancer.specHeadPath !== undefined) this._enhancer.specHeadPath = newConfig.enhancer.specHeadPath
       if (newConfig.enhancer.denoiserPath !== undefined) this._enhancer.denoiserPath = newConfig.enhancer.denoiserPath
     }
-
 
     let ttsParams
     if (this._engineType === ENGINE_SUPERTONIC) {
