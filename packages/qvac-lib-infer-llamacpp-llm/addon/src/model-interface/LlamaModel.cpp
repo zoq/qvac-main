@@ -131,14 +131,12 @@ void LlamaModel::tuneConfigMap(
         (finetuneOverrides.flashAttn
              ? "[LlamaModel] Finetuning: enabling flash attention\n"
              : "[LlamaModel] Finetuning: disabling flash attention\n"));
-  } else if (notUserSet("flash-attn", "flash_attn")) {
+  } else if (isBitnet && notUserSet("flash-attn", "flash_attn")) {
     configFilemap.erase("flash_attn");
     configFilemap["flash-attn"] = "off";
     QLOG_IF(
         Priority::INFO,
-        (isBitnet
-             ? "[LlamaModel] BitNet model detected: disabling flash attention\n"
-             : "[LlamaModel] Disabling flash attention (not supported on Vulkan/Metal)\n"));
+        "[LlamaModel] BitNet model detected: disabling flash attention\n");
   }
 
   constexpr int kAdrenoUbatchThreshold = 800;
