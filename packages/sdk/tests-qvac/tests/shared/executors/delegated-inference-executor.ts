@@ -27,6 +27,9 @@ import { randomHex, generateTopic } from "../../utils/random.js";
 
 const DEFAULT_DELEGATE_TIMEOUT = 10_000;
 
+const isDelegationError = (msg: string): boolean =>
+  msg.includes("DELEGATE_CONNECTION_FAILED") || msg.includes("RPC connection failed");
+
 const allTests = [
   delegatedProviderStart,
   delegatedProviderStop,
@@ -172,8 +175,12 @@ export class DelegatedInferenceExecutor extends BaseExecutor<typeof allTests> {
         }
         return { passed: true, output: "Delegated heartbeat to provider OK" };
       } catch (error) {
+        // Same-process provider can't connect to itself via HyperSwarm,
+        // so DELEGATE_CONNECTION_FAILED is expected — it confirms the SDK
+        // correctly routed the request through the delegation path.
         const msg = error instanceof Error ? error.message : String(error);
-        if (msg.includes("DELEGATE_CONNECTION_FAILED") || msg.includes("RPC connection failed")) {
+
+        if (isDelegationError(msg)) {
           return { passed: true, output: `Delegated heartbeat routed correctly (same-process): ${msg.substring(0, 120)}` };
         }
         return { passed: false, output: `Unexpected heartbeat error: ${msg}` };
@@ -192,7 +199,8 @@ export class DelegatedInferenceExecutor extends BaseExecutor<typeof allTests> {
         return { passed: true, output: "Cancel delegated download API accepted" };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        if (msg.includes("DELEGATE_CONNECTION_FAILED") || msg.includes("RPC connection failed")) {
+
+        if (isDelegationError(msg)) {
           return { passed: true, output: `Delegated cancel routed correctly: ${msg.substring(0, 100)}` };
         }
         return { passed: false, output: `Unexpected error: ${msg.substring(0, 100)}` };
@@ -216,7 +224,11 @@ export class DelegatedInferenceExecutor extends BaseExecutor<typeof allTests> {
       return { passed: false, output: "Should have thrown for non-existent provider" };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      return { passed: true, output: `Connection failure handled: ${msg.substring(0, 120)}` };
+
+      if (isDelegationError(msg)) {
+        return { passed: true, output: `Connection failure handled: ${msg.substring(0, 120)}` };
+      }
+      return { passed: false, output: `Unexpected error (expected delegation error): ${msg.substring(0, 120)}` };
     }
   }
 
@@ -234,7 +246,11 @@ export class DelegatedInferenceExecutor extends BaseExecutor<typeof allTests> {
       return { passed: false, output: "Should have thrown for invalid topic" };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      return { passed: true, output: `Invalid topic rejected: ${msg.substring(0, 120)}` };
+
+      if (isDelegationError(msg) || msg.includes("Invalid input")) {
+        return { passed: true, output: `Invalid topic rejected: ${msg.substring(0, 120)}` };
+      }
+      return { passed: false, output: `Unexpected error (expected delegation/validation error): ${msg.substring(0, 120)}` };
     }
   }
 
@@ -250,7 +266,11 @@ export class DelegatedInferenceExecutor extends BaseExecutor<typeof allTests> {
       return { passed: false, output: "Should have thrown for unreachable provider" };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      return { passed: true, output: `Unreachable provider detected: ${msg.substring(0, 120)}` };
+
+      if (isDelegationError(msg)) {
+        return { passed: true, output: `Unreachable provider detected: ${msg.substring(0, 120)}` };
+      }
+      return { passed: false, output: `Unexpected error (expected delegation error): ${msg.substring(0, 120)}` };
     }
   }
 
