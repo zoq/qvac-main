@@ -19,7 +19,10 @@ export const metadata: Metadata = {
   },
   description: 'Official documentation and single source of truth for QVAC.',
   icons: {
-    icon: '/qvac-favicon.svg',
+    icon: [
+      { url: '/favicon.ico', sizes: '48x48' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
   },
 };
 
