@@ -4,7 +4,38 @@ android_test_host: amazon_linux_2
 phases:
   pre_test:
     commands:
-      # Install and launch the app (custom test spec doesn't do this automatically)
+      # Download and push pre-cached models if URL file exists in test package
+      - |-
+        MODELS_URL_FILE="$DEVICEFARM_TEST_PACKAGE_PATH/models-url.txt"
+        if [ -f "$MODELS_URL_FILE" ]; then
+          echo "Pre-cached models detected, downloading from S3..."
+          MODELS_URL=$(cat "$MODELS_URL_FILE")
+          START=$(date +%s)
+          curl -fsSL -o /tmp/qvac-models.tar.gz "$MODELS_URL"
+          DL_TIME=$(( $(date +%s) - START ))
+          DL_SIZE=$(du -h /tmp/qvac-models.tar.gz | cut -f1)
+          echo "Downloaded ${DL_SIZE} in ${DL_TIME}s"
+
+          echo "Extracting models..."
+          mkdir -p /tmp/qvac-models
+          tar xzf /tmp/qvac-models.tar.gz -C /tmp/qvac-models
+          rm -f /tmp/qvac-models.tar.gz
+
+          echo "Pushing models to device via adb..."
+          adb shell mkdir -p /data/local/tmp/qvac-models
+          START=$(date +%s)
+          adb push /tmp/qvac-models/. /data/local/tmp/qvac-models/
+          PUSH_TIME=$(( $(date +%s) - START ))
+          echo "Models pushed to device in ${PUSH_TIME}s"
+          rm -rf /tmp/qvac-models
+
+          MODEL_COUNT=$(adb shell ls /data/local/tmp/qvac-models/ | wc -l)
+          echo "Pre-cached ${MODEL_COUNT} model files on device"
+        else
+          echo "No pre-cached models (cache-models not enabled)"
+        fi
+
+      # Install and launch the app
       - |-
         echo "Installing app..."
         adb install -r "$DEVICEFARM_APP_PATH"
