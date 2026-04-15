@@ -6,6 +6,7 @@ require('./integration-runtime.cjs')
 // Functions are invoked dynamically by the mobile test runner framework.
 
 /* global runIntegrationModule */
+
 /* global __shouldRunTest */
 
 const __FILTERED = { modulePath: 'filtered', summary: { total: 0, passed: 0, failed: 0 } }
@@ -45,6 +46,11 @@ async function runFinetuningPauseResumeTest (options = {}) { // eslint-disable-l
   return runIntegrationModule('../integration/finetuning-pause-resume.test.js', options)
 }
 
+async function runGemma4Test (options = {}) { // eslint-disable-line no-unused-vars
+  if (typeof __shouldRunTest === 'function' && !__shouldRunTest('runGemma4Test')) return __FILTERED
+  return runIntegrationModule('../integration/gemma4.test.js', options)
+}
+
 async function runGenerationParamsTest (options = {}) { // eslint-disable-line no-unused-vars
   if (typeof __shouldRunTest === 'function' && !__shouldRunTest('runGenerationParamsTest')) return __FILTERED
   return runIntegrationModule('../integration/generation-params.test.js', options)
@@ -73,6 +79,16 @@ async function runMultiInstanceTest (options = {}) { // eslint-disable-line no-u
 async function runOcrLightonTest (options = {}) { // eslint-disable-line no-unused-vars
   if (typeof __shouldRunTest === 'function' && !__shouldRunTest('runOcrLightonTest')) return __FILTERED
   return runIntegrationModule('../integration/ocr-lighton.test.js', options)
+}
+
+async function runOcrPaddleTest (options = {}) { // eslint-disable-line no-unused-vars
+  if (typeof __shouldRunTest === 'function' && !__shouldRunTest('runOcrPaddleTest')) return __FILTERED
+  return runIntegrationModule('../integration/ocr-paddle.test.js', options)
+}
+
+async function runQwen35Test (options = {}) { // eslint-disable-line no-unused-vars
+  if (typeof __shouldRunTest === 'function' && !__shouldRunTest('runQwen35Test')) return __FILTERED
+  return runIntegrationModule('../integration/qwen3-5.test.js', options)
 }
 
 async function runReasoningTest (options = {}) { // eslint-disable-line no-unused-vars
